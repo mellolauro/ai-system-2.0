@@ -1,0 +1,42 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tenant {
+  id        String    @id @default(cuid())
+  name      String
+  plan      String    @default("free")
+  maxTokens Int       @default(50000)
+  active    Boolean   @default(true)
+  agentName String
+  users     User[]
+  products  Product[]
+  createdAt DateTime  @default(now())
+}
+
+model User {
+  id         String   @id @default(cuid())
+  telegramId String   @unique
+  name       String?
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  active      Boolean @default(true)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime @default(now())
+}
