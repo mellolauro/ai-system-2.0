@@ -1,10 +1,21 @@
 require("dotenv").config();
 const express = require("express");
-const prisma = require("./prisma"); // ajuste se necessário
-const { initTelegram } = require("./channels/telegram");
-const productRoutes = require("./routes/products");
+const path = require("path");
 
-const app = express(); // ⚠️ precisa vir antes de usar app
+const prisma = require("./prisma");
+const { initTelegram } = require("./channels/telegram");
+
+// Rotas
+const productRoutes = require("./routes/products");
+const dashboardRouter = require("./routes/dashboard");
+
+const app = express();
+
+// ========================
+// VIEW ENGINE (Dashboard)
+// ========================
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
 
 // ========================
 // MIDDLEWARES
@@ -13,10 +24,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ========================
-// ROTAS
+// HEALTH CHECK
 // ========================
-
-// Health Check
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -26,13 +35,19 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Rotas de produtos
+// ========================
+// DASHBOARD WEB
+// ========================
+app.use("/dashboard", dashboardRouter);
+
+// ========================
+// API PRODUTOS
+// ========================
 app.use("/products", productRoutes);
 
 // ========================
 // TENANTS (Base SaaS)
 // ========================
-
 app.get("/tenants", async (req, res) => {
   try {
     const tenants = await prisma.tenant.findMany({

@@ -1,0 +1,14 @@
+<%- include('layout') %>
+
+<h1>Tenants</h1>
+
+<ul class="list-group">
+  <% tenants.forEach(t => { %>
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+      <%= t.name %> (Plano: <%= t.plan %>)
+      <a href="/dashboard/<%= t.id %>" class="btn btn-sm btn-primary">
+        Ver Produtos
+      </a>
+    </li>
+  <% }) %>
+</ul>
