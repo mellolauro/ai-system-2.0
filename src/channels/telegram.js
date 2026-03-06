@@ -1,6 +1,8 @@
 const TelegramBot = require("node-telegram-bot-api");
 const prisma = require("../prisma");
 const { orchestrateMessage } = require("../orchestrator/orchestrator");
+const { detectIntent } = require("../services/agentRouter");
+const { buildSystemPrompt } = require("../services/agents");
 
 function initTelegram() {
   if (!process.env.TELEGRAM_TOKEN) {
@@ -18,19 +20,21 @@ function initTelegram() {
     try {
       const telegramId = String(msg.from.id);
 
-      /**
-       * 1️⃣ Buscar usuário
-       */
+      // ============================
+      // 1️⃣ Buscar usuário
+      // ============================
       let user = await prisma.user.findUnique({
         where: { telegramId },
         include: { tenant: true }
       });
 
-      /**
-       * 2️⃣ Se não existir, criar automaticamente no tenant default
-       */
+      // ============================
+      // 2️⃣ Criar automaticamente no tenant default
+      // ============================
       if (!user) {
-        const defaultTenant = await prisma.tenant.findFirst();
+        const defaultTenant = await prisma.tenant.findFirst({
+          where: { active: true }
+        });
 
         if (!defaultTenant) {
           return bot.sendMessage(
@@ -49,23 +53,36 @@ function initTelegram() {
         });
       }
 
-      /**
-       * 3️⃣ Orquestrar mensagem
-       */
+      // ============================
+      // 3️⃣ Detectar intenção
+      // ============================
+      const agentType = detectIntent(msg.text);
+
+      // ============================
+      // 4️⃣ Construir System Prompt por setor
+      // ============================
+      const systemPrompt = buildSystemPrompt(agentType, user.tenant);
+
+      // ============================
+      // 5️⃣ Orquestrar mensagem
+      // ============================
       const response = await orchestrateMessage({
         text: msg.text,
         user,
-        channel: "telegram"
+        channel: "telegram",
+        agentType,
+        systemPrompt
       });
 
       await bot.sendMessage(msg.chat.id, response);
+
     } catch (err) {
       console.error("Erro Telegram:", err);
       bot.sendMessage(msg.chat.id, "Erro interno.");
     }
   });
 
-  console.log("📲 Telegram ativo (multi-tenant).");
+  console.log("📲 Telegram ativo (multi-tenant + multi-agent).");
 }
 
 module.exports = { initTelegram };

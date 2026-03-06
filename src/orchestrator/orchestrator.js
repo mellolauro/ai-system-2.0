@@ -3,16 +3,28 @@ const axios = require("axios");
 /**
  * Orquestrador principal do AI-System 2.0
  */
-async function orchestrateMessage({ text, user, channel }) {
+async function orchestrateMessage({
+  text,
+  user,
+  channel,
+  agentType = "default",
+  systemPrompt = null
+}) {
   const tenant = user.tenant;
 
-  // Aqui no futuro podemos usar:
+  // Permite no futuro:
   // tenant.plan
-  // tenant.agentName
   // tenant.model
   // tenant.provider
+  const model = tenant.model || process.env.DEFAULT_MODEL;
 
-  const model = process.env.DEFAULT_MODEL;
+  // Se vier systemPrompt do agent builder, usa ele.
+  // Senão mantém fallback simples.
+  const finalSystemPrompt =
+    systemPrompt ||
+    `Você é o agente oficial da empresa ${tenant.name}.
+     Canal: ${channel}.
+     Seja profissional, claro e objetivo.`;
 
   try {
     const response = await axios.post(
@@ -20,8 +32,14 @@ async function orchestrateMessage({ text, user, channel }) {
       {
         model,
         messages: [
-          { role: "system", content: `Você é o agente do tenant ${tenant.name}.` },
-          { role: "user", content: text }
+          {
+            role: "system",
+            content: finalSystemPrompt
+          },
+          {
+            role: "user",
+            content: text
+          }
         ]
       },
       {

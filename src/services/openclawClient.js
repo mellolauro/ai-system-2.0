@@ -1,25 +1,81 @@
 const WebSocket = require("ws");
+const { v4: uuidv4 } = require("uuid");
 
-function sendToAgent(agent, session, message) {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket("ws://127.0.0.1:18789");
+const OPENCLAW_URL = "ws://127.0.0.1:18789";
 
-    ws.on("open", () => {
-      ws.send(JSON.stringify({
-        type: "chat",
-        agent,
-        session,
-        message
-      }));
-    });
+async function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
 
-    ws.on("message", (data) => {
-      resolve(data.toString());
-      ws.close();
-    });
+async function sendToAgent(agent, session, message, retries = 5) {
 
-    ws.on("error", reject);
-  });
+  for (let attempt = 1; attempt <= retries; attempt++) {
+
+    try {
+
+      return await new Promise((resolve, reject) => {
+
+        const ws = new WebSocket(OPENCLAW_URL);
+        const correlationId = uuidv4();
+
+        ws.on("open", () => {
+          console.log("[OpenClaw] socket open");
+        });
+
+        ws.on("message", (data) => {
+
+          const msg = JSON.parse(data.toString());
+
+          if (msg.event === "connect.challenge") {
+
+            ws.send(JSON.stringify({
+              type: "connect.challenge",
+              payload: msg.payload
+            }));
+
+            return;
+          }
+
+          if (msg.event === "connect.accepted") {
+
+            ws.send(JSON.stringify({
+              type: "chat",
+              agent,
+              session,
+              message,
+              correlationId
+            }));
+
+            return;
+          }
+
+          if (msg.correlationId === correlationId) {
+
+            resolve(msg.response || msg);
+            ws.close();
+
+          }
+
+        });
+
+        ws.on("error", reject);
+
+      });
+
+    } catch (err) {
+
+      console.log(`[OpenClaw] tentativa ${attempt} falhou`);
+
+      if (attempt === retries) {
+        throw err;
+      }
+
+      await sleep(2000);
+
+    }
+
+  }
+
 }
 
 module.exports = { sendToAgent };
