@@ -2,20 +2,41 @@
 
 <form action="/products/create" method="POST" enctype="multipart/form-data">
 
-<input name="name" placeholder="Nome">
+<input name="name" placeholder="Nome do produto" required>
+<br><br>
 
-<textarea name="description"></textarea>
+<textarea name="description" placeholder="Descrição"></textarea>
+<br>br<>
 
-<input name="price" placeholder="Preço">
+<input name="price" placeholder="Preço" required>
+<br><r>
 
-<input name="stock" placeholder="Estoque">
+<input name="stock" placeholder="Estoque" required>
+<br> <br>
+
+<input type="file" name="image" required>
+<br><br>
+
+<select name="tenantId">
+
+<% tenants.forEach(t => { %>
+
+<option value="<%= t.id %>">
+<%= t.name %>
+</option>
+
+<% }) %>
+
+</select>
+
+<br><br>
 
 <input type="file" name="image">
 
-<input type="hidden" name="tenantId" value="<%= tenantId %>">
+<br><br>
 
 <button type="submit">
-Salvar
+Salvar Produto
 </button>
 
 </form>
