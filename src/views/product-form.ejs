@@ -1,0 +1,21 @@
+<h1>Novo Produto</h1>
+
+<form action="/products/create" method="POST" enctype="multipart/form-data">
+
+<input name="name" placeholder="Nome">
+
+<textarea name="description"></textarea>
+
+<input name="price" placeholder="Preço">
+
+<input name="stock" placeholder="Estoque">
+
+<input type="file" name="image">
+
+<input type="hidden" name="tenantId" value="<%= tenantId %>">
+
+<button type="submit">
+Salvar
+</button>
+
+</form>

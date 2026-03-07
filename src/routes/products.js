@@ -1,14 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
-const prisma = require("../prisma");
+const upload = require("../config/upload");
+const controller = require("../controllers/productController");
 
-router.get("/", async (req, res) => {
+router.get("/", controller.list);
 
-const products = await prisma.product.findMany();
-
-res.render("products", { products });
-
-});
+router.post("/create", upload.single("image"), controller.create);
 
 module.exports = router;

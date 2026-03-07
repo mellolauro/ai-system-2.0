@@ -1,33 +1,32 @@
-<h1 class="text-2xl font-bold mb-6">
-📦 Produtos
-</h1>
+<h1>Produtos</h1>
 
-<table class="w-full bg-white rounded shadow">
+<a href="/products/new">Novo Produto</a>
 
-<thead class="bg-gray-200">
+<table>
 
 <tr>
-
-<th class="p-3 text-left">Nome</th>
-<th class="p-3 text-left">Preço</th>
-
+<th>Imagem</th>
+<th>Nome</th>
+<th>Preço</th>
+<th>Estoque</th>
 </tr>
-
-</thead>
-
-<tbody>
 
 <% products.forEach(p => { %>
 
-<tr class="border-t">
+<tr>
 
-<td class="p-3"><%= p.name %></td>
-<td class="p-3">R$ <%= p.price %></td>
+<td>
+<% if (p.images.length) { %>
+<img src="<%= p.images[0].url %>" width="60">
+<% } %>
+</td>
+
+<td><%= p.name %></td>
+<td>R$ <%= p.price %></td>
+<td><%= p.stock %></td>
 
 </tr>
 
 <% }) %>
-
-</tbody>
 
 </table>

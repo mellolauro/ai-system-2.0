@@ -1,14 +1,18 @@
-<%- include('layout') %>
+<h1>Configurações da Empresa</h1>
 
-<h1>Tenants</h1>
+<form action="/tenant/update" method="POST">
 
-<ul class="list-group">
-  <% tenants.forEach(t => { %>
-    <li class="list-group-item d-flex justify-content-between align-items-center">
-      <%= t.name %> (Plano: <%= t.plan %>)
-      <a href="/dashboard/<%= t.id %>" class="btn btn-sm btn-primary">
-        Ver Produtos
-      </a>
-    </li>
-  <% }) %>
-</ul>
+<input name="name" value="<%= tenant.name %>">
+
+<select name="plan">
+
+<option value="free">Free</option>
+<option value="pro">Pro</option>
+
+</select>
+
+<button>
+Salvar
+</button>
+
+</form>
