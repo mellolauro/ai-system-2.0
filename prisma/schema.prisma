@@ -8,24 +8,39 @@ generator client {
 }
 
 model Tenant {
-  id        String    @id @default(cuid())
+  id        String  @id @default(cuid())
   name      String
-  plan      String    @default("free")
-  maxTokens Int       @default(50000)
-  active    Boolean   @default(true)
+  plan      String  @default("free")
+  maxTokens Int     @default(50000)
+  active    Boolean @default(true)
   agentName String
-  users     User[]
-  products  Product[]
-  createdAt DateTime  @default(now())
+
+  users            User[]
+  products         Product[]
+  orders           Order[]
+  whatsappSessions WhatsAppSession[]
+
+  createdAt DateTime @default(now())
 }
 
 model User {
-  id         String   @id @default(cuid())
-  telegramId String   @unique
+  id         String  @id @default(cuid())
+  telegramId String  @unique
   name       String?
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  createdAt  DateTime @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  SHIPPED
 }
 
 model Product {
@@ -33,7 +48,60 @@ model Product {
   name        String
   description String?
   price       Float
+  stock       Int     @default(0)
+  imageUrl    String?
   active      Boolean @default(true)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  orderItems OrderItem[]
+  images     ProductImage[]
+
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  status OrderStatus @default(PENDING)
+
+  items OrderItem[]
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+
+  orderId String
+  order   Order @relation(fields: [orderId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Int
+  price    Float
+}
+
+model ProductImage {
+  id  String @id @default(cuid())
+  url String
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model WhatsAppSession {
+  id String @id @default(cuid())
+
+  phone     String
+  sessionId String
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])

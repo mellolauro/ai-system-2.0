@@ -1,27 +1,36 @@
 require("dotenv").config();
+
 const express = require("express");
 const path = require("path");
 
 const prisma = require("./prisma");
 const { initTelegram } = require("./channels/telegram");
 
-// Rotas
+// ========================
+// ROTAS
+// ========================
 const productRoutes = require("./routes/products");
 const dashboardRouter = require("./routes/dashboard");
+const chatRoutes = require("./routes/chat");
 
 const app = express();
-
-// ========================
-// VIEW ENGINE (Dashboard)
-// ========================
-app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
 
 // ========================
 // MIDDLEWARES
 // ========================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ========================
+// VIEW ENGINE
+// ========================
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+
+// ========================
+// STATIC FILES
+// ========================
+app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
 
 // ========================
 // HEALTH CHECK
@@ -36,12 +45,17 @@ app.get("/health", (req, res) => {
 });
 
 // ========================
-// DASHBOARD WEB
+// CHATBOT API
+// ========================
+app.use("/api/chat", chatRoutes);
+
+// ========================
+// DASHBOARD
 // ========================
 app.use("/dashboard", dashboardRouter);
 
 // ========================
-// API PRODUTOS
+// PRODUTOS
 // ========================
 app.use("/products", productRoutes);
 
@@ -50,19 +64,24 @@ app.use("/products", productRoutes);
 // ========================
 app.get("/tenants", async (req, res) => {
   try {
+
     const tenants = await prisma.tenant.findMany({
       include: { users: true }
     });
 
     res.json(tenants);
+
   } catch (error) {
+
     console.error("Erro ao buscar tenants:", error);
     res.status(500).json({ error: "Erro interno" });
+
   }
 });
 
 app.post("/tenants", async (req, res) => {
   try {
+
     const { name, plan, agentName } = req.body;
 
     if (!name) {
@@ -78,9 +97,12 @@ app.post("/tenants", async (req, res) => {
     });
 
     res.status(201).json(tenant);
+
   } catch (error) {
+
     console.error("Erro ao criar tenant:", error);
     res.status(500).json({ error: "Erro interno" });
+
   }
 });
 
@@ -97,26 +119,42 @@ app.use((err, req, res, next) => {
 // ========================
 const PORT = process.env.PORT || 3000;
 
-const server = app.listen(PORT, async () => {
-  console.log(`🚀 AI-System 2.0 rodando na porta ${PORT}`);
+const startServer = async () => {
 
   try {
+
     await prisma.$connect();
     console.log("📦 Prisma conectado com sucesso");
 
-    initTelegram();
-  } catch (err) {
-    console.error("Erro ao iniciar serviços:", err);
-  }
-});
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 AI-System 2.0 rodando na porta ${PORT}`);
+    });
 
-// ========================
-// GRACEFUL SHUTDOWN
-// ========================
-process.on("SIGINT", async () => {
-  console.log("Encerrando aplicação...");
-  await prisma.$disconnect();
-  server.close(() => {
-    process.exit(0);
-  });
-});
+    initTelegram();
+    console.log("📲 Telegram ativo (multi-tenant + multi-agent)");
+
+    // ========================
+    // GRACEFUL SHUTDOWN
+    // ========================
+    process.on("SIGINT", async () => {
+
+      console.log("Encerrando aplicação...");
+
+      await prisma.$disconnect();
+
+      server.close(() => {
+        process.exit(0);
+      });
+
+    });
+
+  } catch (err) {
+
+    console.error("Erro ao iniciar serviços:", err);
+    process.exit(1);
+
+  }
+
+};
+
+startServer();

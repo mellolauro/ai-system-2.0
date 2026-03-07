@@ -1,54 +1,33 @@
-<%- include('layout') %>
+<h1 class="text-2xl font-bold mb-6">
+📦 Produtos
+</h1>
 
-<h1>Produtos do Tenant <%= tenant.name %></h1>
+<table class="w-full bg-white rounded shadow">
 
-<a href="/dashboard" class="btn btn-secondary mb-3">
-  ← Voltar para Tenants
-</a>
+<thead class="bg-gray-200">
 
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>Nome</th>
-      <th>Descrição</th>
-      <th>Preço</th>
-      <th>Ativo</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% products.forEach(p => { %>
-      <tr>
-        <td><%= p.name %></td>
-        <td><%= p.description || "-" %></td>
-        <td>R$ <%= p.price.toFixed(2) %></td>
-        <td><%= p.active ? "Sim" : "Não" %></td>
-      </tr>
-    <% }) %>
-  </tbody>
+<tr>
+
+<th class="p-3 text-left">Nome</th>
+<th class="p-3 text-left">Preço</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+<% products.forEach(p => { %>
+
+<tr class="border-t">
+
+<td class="p-3"><%= p.name %></td>
+<td class="p-3">R$ <%= p.price %></td>
+
+</tr>
+
+<% }) %>
+
+</tbody>
+
 </table>
-
-<h2>Criar Produto</h2>
-
-<form method="POST" action="/dashboard/<%= tenant.id %>/products">
-  <div class="mb-3">
-    <label>Nome</label>
-    <input type="text" name="name" class="form-control" required>
-  </div>
-
-  <div class="mb-3">
-    <label>Descrição</label>
-    <input type="text" name="description" class="form-control">
-  </div>
-
-  <div class="mb-3">
-    <label>Preço</label>
-    <input type="number" step="0.01" name="price" class="form-control" required>
-  </div>
-
-  <div class="mb-3 form-check">
-    <input type="checkbox" name="active" class="form-check-input" checked>
-    <label class="form-check-label">Ativo</label>
-  </div>
-
-  <button class="btn btn-primary">Criar</button>
-</form>

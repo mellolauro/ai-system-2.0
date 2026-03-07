@@ -1,4 +1,6 @@
 const axios = require("axios");
+const { detectIntent } = require("../services/agentRouter");
+const { handleSalesAgent } = require("../services/salesAgent");
 
 /**
  * Orquestrador principal do AI-System 2.0
@@ -12,19 +14,32 @@ async function orchestrateMessage({
 }) {
   const tenant = user.tenant;
 
-  // Permite no futuro:
-  // tenant.plan
-  // tenant.model
-  // tenant.provider
+  /**
+   * 🔎 1️⃣ Detectar intenção automaticamente
+   */
+  const detectedIntent = detectIntent(text);
+
+  /**
+   * 🛒 2️⃣ Se for VENDAS → resolver internamente (Prisma)
+   */
+  if (detectedIntent === "sales") {
+    const salesResponse = await handleSalesAgent({ text, user });
+
+    if (salesResponse) {
+      return salesResponse;
+    }
+  }
+
+  /**
+   * 🤖 3️⃣ Caso contrário → usar IA
+   */
   const model = tenant.model || process.env.DEFAULT_MODEL;
 
-  // Se vier systemPrompt do agent builder, usa ele.
-  // Senão mantém fallback simples.
   const finalSystemPrompt =
     systemPrompt ||
     `Você é o agente oficial da empresa ${tenant.name}.
-     Canal: ${channel}.
-     Seja profissional, claro e objetivo.`;
+Canal: ${channel}.
+Seja profissional, claro e objetivo.`;
 
   try {
     const response = await axios.post(
@@ -52,7 +67,17 @@ async function orchestrateMessage({
 
     return response.data.choices[0].message.content;
   } catch (error) {
-    console.error("Erro no provider:", error.response?.data || error.message);
+    const status = error.response?.status;
+
+    console.error("Erro no provider:", {
+      status,
+      data: error.response?.data
+    });
+
+    if (status === 429) {
+      return "Sistema temporariamente ocupado. Tente novamente em alguns instantes.";
+    }
+
     return "Erro ao consultar IA.";
   }
 }
