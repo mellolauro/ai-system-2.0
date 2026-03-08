@@ -1,0 +1,42 @@
+<h1><%= tenant ? "Editar Tenant" : "Novo Tenant" %></h1>
+
+<form action="<%= tenant ? '/tenants/update/' + tenant.id : '/tenants/create' %>" method="POST">
+
+<input 
+name="name"
+placeholder="Nome da empresa"
+value="<%= tenant ? tenant.name : '' %>"
+required
+>
+
+<br><br>
+
+<select name="plan">
+
+<option value="free" <%= tenant?.plan === 'free' ? 'selected' : '' %>>
+Free
+</option>
+
+<option value="pro" <%= tenant?.plan === 'pro' ? 'selected' : '' %>>
+Pro
+</option>
+
+</select>
+
+<br><br>
+
+<input
+name="agentName"
+placeholder="Nome do agente"
+value="<%= tenant ? tenant.agentName : 'main' %>"
+>
+
+<br><br>
+
+<button>
+
+<%= tenant ? "Atualizar" : "Criar" %>
+
+</button>
+
+</form>

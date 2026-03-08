@@ -75,4 +75,16 @@ router.post("/create", upload.single("image"), async (req, res) => {
 
 });
 
+// DELETE
+router.get("/delete/:id", async (req, res) => {
+
+  await prisma.product.delete({
+    where: { id: req.params.id }
+  });
+
+  res.redirect("/products");
+
+});
+
+
 module.exports = router;

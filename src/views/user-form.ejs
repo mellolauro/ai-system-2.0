@@ -1,0 +1,26 @@
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <a href="/users" class="text-blue-600 text-sm hover:underline"><i class="fas fa-arrow-left"></i> Voltar</a>
+        <h1 class="text-2xl font-bold text-slate-800 mt-2">Cadastrar Novo Usuário</h1>
+    </div>
+
+    <form action="/users/create" method="POST" enctype="multipart/form-data" class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Nome do usuário</label>
+                <input name="name" type="text" placeholder="Lauro Mello" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">email</label>
+                    <input name="name" type="text" placeholder="lauromello@hotmail.com" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                </div>
+            </div>
+
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all shadow-md">
+                Salvar usuário
+            </button>
+        </div>
+    </form>
+</div>

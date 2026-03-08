@@ -10,8 +10,10 @@ const expressLayouts = require("express-ejs-layouts");
 // ========================
 // ROTAS
 // ========================
-const productRoutes = require("./routes/products");
 const dashboardRouter = require("./routes/dashboard");
+const productRoutes = require("./routes/products");
+const tenantRoutes = require("./routes/tenants");
+const userRoutes = require("./routes/users");
 const chatRoutes = require("./routes/chat");
 
 const app = express();
@@ -49,11 +51,6 @@ app.get("/health", (req, res) => {
 });
 
 // ========================
-// CHATBOT API
-// ========================
-app.use("/api/chat", chatRoutes);
-
-// ========================
 // DASHBOARD
 // ========================
 app.use("/dashboard", dashboardRouter);
@@ -64,51 +61,19 @@ app.use("/dashboard", dashboardRouter);
 app.use("/products", productRoutes);
 
 // ========================
-// TENANTS (Base SaaS)
+// TENANTS
 // ========================
-app.get("/tenants", async (req, res) => {
-  try {
+app.use("/tenants", tenantRoutes);
 
-    const tenants = await prisma.tenant.findMany({
-      include: { users: true }
-    });
+// ========================
+// USERS
+// ========================
+app.use("/users", userRoutes);
 
-    res.json(tenants);
-
-  } catch (error) {
-
-    console.error("Erro ao buscar tenants:", error);
-    res.status(500).json({ error: "Erro interno" });
-
-  }
-});
-
-app.post("/tenants", async (req, res) => {
-  try {
-
-    const { name, plan, agentName } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: "Nome é obrigatório" });
-    }
-
-    const tenant = await prisma.tenant.create({
-      data: {
-        name,
-        plan: plan || "free",
-        agentName: agentName || "main"
-      }
-    });
-
-    res.status(201).json(tenant);
-
-  } catch (error) {
-
-    console.error("Erro ao criar tenant:", error);
-    res.status(500).json({ error: "Erro interno" });
-
-  }
-});
+// ========================
+// CHATBOT API
+// ========================
+app.use("/api/chat", chatRoutes);
 
 // ========================
 // ERRO GLOBAL
