@@ -2,10 +2,17 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../prisma");
 
+
+// ==========================
 // LISTAR USUÁRIOS
+// ==========================
 router.get("/", async (req, res) => {
 
-  const users = await prisma.user.findMany();
+  const users = await prisma.user.findMany({
+    include: {
+      tenant: true
+    }
+  });
 
   res.render("users", {
     users
@@ -13,24 +20,34 @@ router.get("/", async (req, res) => {
 
 });
 
+
+// ==========================
 // NOVO USUÁRIO
-router.get("/new", (req, res) => {
+// ==========================
+router.get("/new", async (req, res) => {
+
+  const tenants = await prisma.tenant.findMany();
 
   res.render("user-form", {
-    user: null
+    tenants
   });
 
 });
 
-// CRIAR
+
+// ==========================
+// CRIAR USUÁRIO
+// ==========================
 router.post("/create", async (req, res) => {
 
-  const { name, email } = req.body;
+  const { name, email, telegramId, tenantId } = req.body;
 
   await prisma.user.create({
     data: {
       name,
-      email
+      email,
+      telegramId,
+      tenantId
     }
   });
 
@@ -38,29 +55,40 @@ router.post("/create", async (req, res) => {
 
 });
 
+
+// ==========================
 // EDITAR
+// ==========================
 router.get("/edit/:id", async (req, res) => {
 
   const user = await prisma.user.findUnique({
     where: { id: req.params.id }
   });
 
+  const tenants = await prisma.tenant.findMany();
+
   res.render("user-form", {
-    user
+    user,
+    tenants
   });
 
 });
 
+
+// ==========================
 // UPDATE
+// ==========================
 router.post("/update/:id", async (req, res) => {
 
-  const { name, email } = req.body;
+  const { name, email, telegramId, tenantId } = req.body;
 
   await prisma.user.update({
     where: { id: req.params.id },
     data: {
       name,
-      email
+      email,
+      telegramId,
+      tenantId
     }
   });
 
@@ -68,7 +96,10 @@ router.post("/update/:id", async (req, res) => {
 
 });
 
+
+// ==========================
 // DELETE
+// ==========================
 router.get("/delete/:id", async (req, res) => {
 
   await prisma.user.delete({
@@ -78,5 +109,6 @@ router.get("/delete/:id", async (req, res) => {
   res.redirect("/users");
 
 });
+
 
 module.exports = router;
