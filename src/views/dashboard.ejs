@@ -1,22 +1,33 @@
-<h1 class="text-3xl font-bold mb-6">
-🚀 AI-System Dashboard
-</h1>
+<h1 class="text-2xl font-bold text-slate-800 mb-8">Visão Geral</h1>
 
-<div class="grid grid-cols-3 gap-6">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+        <div>
+            <p class="text-sm text-slate-500 font-medium uppercase">Produtos</p>
+            <h3 class="text-3xl font-bold mt-1"><%= products %></h3>
+        </div>
+        <div class="bg-blue-100 p-4 rounded-lg text-blue-600">
+            <i class="fas fa-shopping-bag fa-2x"></i>
+        </div>
+    </div>
 
-<div class="bg-white p-6 rounded shadow">
-<h2 class="text-lg font-semibold">Produtos</h2>
-<p class="text-3xl"><%= products %></p>
-</div>
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+        <div>
+            <p class="text-sm text-slate-500 font-medium uppercase">Usuários</p>
+            <h3 class="text-3xl font-bold mt-1"><%= users %></h3>
+        </div>
+        <div class="bg-green-100 p-4 rounded-lg text-green-600">
+            <i class="fas fa-users fa-2x"></i>
+        </div>
+    </div>
 
-<div class="bg-white p-6 rounded shadow">
-<h2 class="text-lg font-semibold">Usuários</h2>
-<p class="text-3xl"><%= users %></p>
-</div>
-
-<div class="bg-white p-6 rounded shadow">
-<h2 class="text-lg font-semibold">Mensagens Telegram</h2>
-<p class="text-3xl"><%= messages %></p>
-</div>
-
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+        <div>
+            <p class="text-sm text-slate-500 font-medium uppercase">Mensagens</p>
+            <h3 class="text-3xl font-bold mt-1"><%= messages %></h3>
+        </div>
+        <div class="bg-purple-100 p-4 rounded-lg text-purple-600">
+            <i class="fab fa-telegram-plane fa-2x"></i>
+        </div>
+    </div>
 </div>
