@@ -1,0 +1,59 @@
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-slate-800">Gerenciamento de Pedidos</h1>
+    <a href="/orders/new" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md flex items-center gap-2">
+        <i class="fas fa-cart-plus"></i> Novo Pedido
+    </a>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
+    <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-50">
+            <tr>
+                <th class="p-4 font-semibold text-slate-600 border-b">ID / Data</th>
+                <th class="p-4 font-semibold text-slate-600 border-b">Cliente</th>
+                <th class="p-4 font-semibold text-slate-600 border-b">Status</th>
+                <th class="p-4 font-semibold text-slate-600 border-b">Total</th>
+                <th class="p-4 font-semibold text-slate-600 border-b text-center">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% orders.forEach(order => { %>
+                <tr class="hover:bg-slate-50 transition-colors border-b last:border-0">
+                    <td class="p-4">
+                        <div class="font-mono text-xs text-blue-600 font-bold uppercase">#<%= order.id.substring(0,8) %></div>
+                        <div class="text-[10px] text-slate-400 mt-1">
+                            <%= new Date(order.createdAt).toLocaleDateString('pt-BR') %>
+                        </div>
+                    </td>
+                    <td class="p-4 text-slate-700 font-medium">
+                        <%= order.user.name %>
+                    </td>
+                    <td class="p-4">
+                        <% 
+                            let statusClass = "bg-slate-100 text-slate-600";
+                            if(order.status === 'pago') statusClass = "bg-green-100 text-green-700";
+                            if(order.status === 'pendente') statusClass = "bg-amber-100 text-amber-700";
+                            if(order.status === 'cancelado') statusClass = "bg-red-100 text-red-700";
+                        %>
+                        <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase <%= statusClass %>">
+                            <%= order.status %>
+                        </span>
+                    </td>
+                    <td class="p-4 font-bold text-slate-800">
+                        R$ <%= order.total.toLocaleString('pt-BR', {minimumFractionDigits: 2}) %>
+                    </td>
+                    <td class="p-4 text-center">
+                        <div class="flex justify-center gap-2">
+                            <a href="/orders/view/<%= order.id %>" class="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Ver Detalhes">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <button class="p-2 text-slate-400 hover:text-green-600" title="Imprimir Recibo">
+                                <i class="fas fa-print"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+</div>

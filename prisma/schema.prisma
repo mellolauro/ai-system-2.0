@@ -18,6 +18,7 @@ model Tenant {
   products         Product[]
   orders           Order[]
   whatsappSessions WhatsAppSession[]
+
   createdAt        DateTime    @default(now())
 }
 
@@ -47,38 +48,30 @@ model Product {
   stock       Int      @default(0)
   imageUrl    String?
   active      Boolean  @default(true)
-
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
-
   images      ProductImage[]
-  items       OrderItem[]
+  orderItems  OrderItem[]
 }
 
 model Order {
   id        String      @id @default(cuid())
-  createdAt DateTime    @default(now())
-
   tenantId  String
   tenant    Tenant      @relation(fields: [tenantId], references: [id])
-
   userId    String
   user      User        @relation(fields: [userId], references: [id])
-
   status    OrderStatus @default(PENDING)
-
+  total     Float
   items     OrderItem[]
+  createdAt DateTime    @default(now())
 }
 
 model OrderItem {
   id        String  @id @default(cuid())
-
   orderId   String
   order     Order   @relation(fields: [orderId], references: [id])
-
   productId String
   product   Product @relation(fields: [productId], references: [id])
-
   quantity  Int
   price     Float
 }
@@ -86,7 +79,6 @@ model OrderItem {
 model ProductImage {
   id        String  @id @default(cuid())
   url       String
-
   productId String
   product   Product @relation(fields: [productId], references: [id])
 }
@@ -94,10 +86,8 @@ model ProductImage {
 model WhatsAppSession {
   id        String   @id @default(cuid())
   phone     String
-  sessionId String
-
+  sessionId String  
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
-
   createdAt DateTime @default(now())
 }

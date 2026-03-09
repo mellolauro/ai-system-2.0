@@ -1,0 +1,58 @@
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <a href="/users" class="text-blue-600 text-sm hover:underline"><i class="fas fa-arrow-left"></i> Voltar</a>
+        <h1 class="text-2xl font-bold text-slate-800 mt-2">
+            <%= typeof user !== 'undefined' ? "Editar Usuário" : "Cadastrar Novo Usuário" %>
+        </h1>
+    </div>
+
+    <form action="<%= typeof user !== 'undefined' ? '/users/update/' + user.id : '/users/create' %>" method="POST" class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
+        <div class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Nome Completo</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                            <i class="fas fa-user"></i>
+                        </span>
+                        <input name="name" type="text" placeholder="Ex: Lauro Mello" 
+                            value="<%= typeof user !== 'undefined' ? user.name : '' %>"
+                            class="w-full pl-10 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">E-mail</label>
+                    <input name="email" type="email" placeholder="lauro@email.com" 
+                        value="<%= typeof user !== 'undefined' ? user.email : '' %>"
+                        class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2 text-sky-600">
+                    <i class="fab fa-telegram"></i> ID do Telegram
+                </label>
+                <input name="telegramId" type="text" placeholder="123456789" 
+                    value="<%= typeof user !== 'undefined' ? user.telegramId : '' %>"
+                    class="w-full p-3 border rounded-lg border-sky-100 focus:ring-2 focus:ring-sky-500 outline-none bg-sky-50/30" required>
+                <p class="text-[10px] text-slate-400 mt-1 italic">* Necessário para notificações automáticas via bot.</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Vincular à Empresa (Tenant)</label>
+                <select name="tenantId" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm" required>
+                    <option value="" disabled <%= typeof user === 'undefined' ? 'selected' : '' %>>Selecione uma empresa...</option>
+                    <% tenants.forEach(t => { %>
+                        <option value="<%= t.id %>" <%= (typeof user !== 'undefined' && user.tenantId === t.id) ? 'selected' : '' %>>
+                            <%= t.name %>
+                        </option>
+                    <% }) %>
+                </select>
+            </div>
+
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all shadow-md flex items-center justify-center gap-2">
+                <i class="fas fa-save"></i> <%= typeof user !== 'undefined' ? "Atualizar Usuário" : "Salvar Usuário" %>
+            </button>
+        </div>
+    </form>
+</div>

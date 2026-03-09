@@ -1,42 +1,44 @@
-<h1><%= tenant ? "Editar Tenant" : "Novo Tenant" %></h1>
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <a href="/tenants" class="text-blue-600 text-sm hover:underline"><i class="fas fa-arrow-left"></i> Voltar</a>
+        <h1 class="text-2xl font-bold text-slate-800 mt-2">
+            <%= typeof tenant !== 'undefined' && tenant ? "Editar Empresa" : "Configurar Nova Empresa" %>
+        </h1>
+    </div>
 
-<form action="<%= tenant ? '/tenants/update/' + tenant.id : '/tenants/create' %>" method="POST">
+    <form action="<%= typeof tenant !== 'undefined' && tenant ? '/tenants/update/' + tenant.id : '/tenants/create' %>" method="POST" class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Nome da Empresa</label>
+                <input name="name" type="text" placeholder="Ex: Tecno Shooper" 
+                    value="<%= typeof tenant !== 'undefined' && tenant ? tenant.name : '' %>"
+                    class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+            </div>
 
-<input 
-name="name"
-placeholder="Nome da empresa"
-value="<%= tenant ? tenant.name : '' %>"
-required
->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Plano de Serviço</label>
+                    <select name="plan" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                        <option value="free" <%= (typeof tenant !== 'undefined' && tenant?.plan === 'free') ? 'selected' : '' %>>Free (Básico)</option>
+                        <option value="pro" <%= (typeof tenant !== 'undefined' && tenant?.plan === 'pro') ? 'selected' : '' %>>Pro (Ilimitado)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Nome do Agente AI</label>
+                    <input name="agentName" type="text" 
+                        value="<%= typeof tenant !== 'undefined' && tenant ? tenant.agentName : 'main' %>"
+                        class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+            </div>
 
-<br><br>
+            <div class="p-4 bg-blue-50 rounded-lg flex items-start gap-3">
+                <i class="fas fa-info-circle text-blue-500 mt-1"></i>
+                <p class="text-xs text-blue-700">O Tenant é a entidade principal. Todos os usuários e produtos cadastrados posteriormente serão vinculados a esta empresa.</p>
+            </div>
 
-<select name="plan">
-
-<option value="free" <%= tenant?.plan === 'free' ? 'selected' : '' %>>
-Free
-</option>
-
-<option value="pro" <%= tenant?.plan === 'pro' ? 'selected' : '' %>>
-Pro
-</option>
-
-</select>
-
-<br><br>
-
-<input
-name="agentName"
-placeholder="Nome do agente"
-value="<%= tenant ? tenant.agentName : 'main' %>"
->
-
-<br><br>
-
-<button>
-
-<%= tenant ? "Atualizar" : "Criar" %>
-
-</button>
-
-</form>
+            <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-3 rounded-lg transition-all shadow-md">
+                <%= typeof tenant !== 'undefined' && tenant ? "Atualizar Dados" : "Criar Tenant" %>
+            </button>
+        </div>
+    </form>
+</div>
