@@ -1,34 +1,52 @@
-<h1>Tenants</h1>
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-slate-800">Gestão de Tenants (Empresas)</h1>
+    <a href="/tenants/new" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md flex items-center gap-2">
+        <i class="fas fa-plus"></i> Novo Tenant
+    </a>
+</div>
 
-<a href="/tenants/new">Novo Tenant</a>
+<div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
+    <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-50">
+            <tr>
+                <th class="p-4 font-semibold text-slate-600 border-b">Nome da Empresa</th>
+                <th class="p-4 font-semibold text-slate-600 border-b">Plano</th>
+                <th class="p-4 font-semibold text-slate-600 border-b">Agente Principal</th>
+                <th class="p-4 font-semibold text-slate-600 border-b text-center">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% tenants.forEach(t => { %>
+                <tr class="hover:bg-slate-50 transition-colors border-b last:border-0">
+                    <td class="p-4 uppercase font-bold text-slate-700 tracking-wider text-sm">
+                        <%= t.name %>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-3 py-1 rounded-full text-xs font-bold <%= t.plan === 'pro' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600' %>">
+                            <%= t.plan.toUpperCase() %>
+                        </span>
+                    </td>
+                    <td class="p-4 text-slate-600 italic">
+                        <%= t.agentName || 'main' %>
+                    </td>
+                    <td class="p-4 text-center space-x-3">
+                        <a href="/tenants/edit/<%= t.id %>" class="text-blue-500 hover:text-blue-700 transition-colors">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button onclick="confirmDelete('<%= t.id %>')" class="text-red-400 hover:text-red-600 transition-colors">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+</div>
 
-<table>
-
-<tr>
-<th>Nome</th>
-<th>Plano</th>
-<th>Agente</th>
-<th>Ações</th>
-</tr>
-
-<% tenants.forEach(t => { %>
-
-<tr>
-
-<td><%= t.name %></td>
-<td><%= t.plan %></td>
-<td><%= t.agentName %></td>
-
-<td>
-
-<a href="/tenants/edit/<%= t.id %>">Editar</a>
-
-<a href="/tenants/delete/<%= t.id %>">Excluir</a>
-
-</td>
-
-</tr>
-
-<% }) %>
-
-</table>
+<script>
+    function confirmDelete(id) {
+        if(confirm('Tem certeza que deseja excluir este Tenant? Todos os produtos vinculados podem ser afetados.')) {
+            window.location.href = `/tenants/delete/${id}`;
+        }
+    }
+</script>
