@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require("uuid");
 
 const OPENCLAW_URL = "ws://127.0.0.1:18789";
 
-async function sleep(ms) {
+function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
@@ -15,45 +15,68 @@ async function sendToAgent(agent, session, message, retries = 5) {
 
       return await new Promise((resolve, reject) => {
 
-        const ws = new WebSocket(OPENCLAW_URL, {
-          protocol: "openclaw"
-        });
+        const ws = new WebSocket(OPENCLAW_URL);
+
         const correlationId = uuidv4();
 
+        let output = "";
+        let connected = false;
+
+        console.log(`[OpenClaw] connecting attempt ${attempt}`);
+
         const timeout = setTimeout(() => {
+
+          console.log("[OpenClaw] timeout");
+
           ws.close();
+
           reject(new Error("OpenClaw timeout"));
+
         }, 60000);
 
         ws.on("open", () => {
 
-           console.log("[OpenClaw] socket open");
+          console.log("[OpenClaw] socket open");
 
-          ws.send(JSON.stringify({
-            type: "connect",
-            client: "ai-system",
-            version: "1.0"
-  }));
-
-});
+        });
 
         ws.on("message", (data) => {
 
-          const msg = JSON.parse(data.toString());
+          let msg;
 
-          // handshake challenge
+          try {
+
+            msg = JSON.parse(data.toString());
+
+          } catch {
+
+            console.log("[OpenClaw] invalid JSON");
+
+            return;
+          }
+
+          // challenge
           if (msg.event === "connect.challenge") {
 
+            console.log("[OpenClaw] challenge received");
+
             ws.send(JSON.stringify({
-            type: "connect.challenge",
-            nonce: msg.payload.nonce,
-            ts: msg.payload.ts
+              type: "connect.challenge",
+              payload: {
+              nonce: msg.payload.nonce,
+              ts: msg.payload.ts
+            }
           }));
 
-}
+            return;
+          }
 
-          // gateway accepted
+          // accepted
           if (msg.event === "connect.accepted") {
+
+            console.log("[OpenClaw] connection accepted");
+
+            connected = true;
 
             ws.send(JSON.stringify({
 
@@ -62,6 +85,7 @@ async function sendToAgent(agent, session, message, retries = 5) {
               agent,
 
               userId: session,
+
               sessionId: session,
 
               input: message,
@@ -71,28 +95,57 @@ async function sendToAgent(agent, session, message, retries = 5) {
             }));
 
             return;
+
           }
 
-          // resposta do agente
+          // streaming
+          if (msg.event === "agent.delta") {
+
+            const chunk = msg.data?.delta || "";
+
+            output += chunk;
+
+            return;
+
+          }
+
+          // final output
           if (msg.event === "agent.output") {
 
             clearTimeout(timeout);
 
-            resolve(msg.data?.output || msg);
+            const result = msg.data?.output || output;
+
+            console.log("[OpenClaw] response received");
 
             ws.close();
+
+            resolve(result);
 
           }
 
         });
 
         ws.on("error", (err) => {
+
           clearTimeout(timeout);
+
+          console.log("[OpenClaw] error", err.message);
+
           reject(err);
+
         });
 
         ws.on("close", () => {
+
           console.log("[OpenClaw] socket closed");
+
+          if (!connected) {
+
+            reject(new Error("connection closed before handshake"));
+
+          }
+
         });
 
       });
@@ -102,7 +155,9 @@ async function sendToAgent(agent, session, message, retries = 5) {
       console.log(`[OpenClaw] tentativa ${attempt} falhou`);
 
       if (attempt === retries) {
+
         throw err;
+
       }
 
       await sleep(2000);
