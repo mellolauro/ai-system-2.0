@@ -1,106 +1,31 @@
+const { sendToAgent } = require("../services/openclawClient");
 const prisma = require("../prisma");
-const { sendToAgent } = require("./openclawClient");
-const { askOpenRouter } = require("./openrouter");
 
 async function handleSalesAgent({ text, user }) {
-  const lowerText = text.toLowerCase();
-  const tenantId = user.tenantId;
 
-  /**
-   * 1️⃣ Listar produtos
-   */
-  if (lowerText.includes("listar") || lowerText.includes("produtos")) {
-    const products = await prisma.product.findMany({
-      where: {
-        tenantId,
-        active: true
-      }
-    });
+  const products = await prisma.product.findMany({
+    where: { active: true }
+  });
 
-    if (!products.length) {
-      return "No momento não temos produtos disponíveis.";
-    }
+  const productList = products.map(p =>
 
-    let response = "🛍️ *Produtos disponíveis:*\n\n";
+    `${p.name} - R$ ${p.price}`
 
-    products.forEach((p, index) => {
-      response += `${index + 1}. ${p.name} - R$ ${p.price.toFixed(2)}\n`;
-    });
+  ).join("\n");
 
-    response += "\nDigite: comprar NOME_DO_PRODUTO";
-    return response;
-  }
+  const prompt = `
+Você é um vendedor.
 
-  /**
-   * 2️⃣ Comprar produto
-   */
-  if (lowerText.startsWith("comprar")) {
-    const productName = text.replace(/comprar/i, "").trim();
+Produtos disponíveis:
 
-    const product = await prisma.product.findFirst({
-      where: {
-        tenantId,
-        name: {
-          contains: productName,
-          mode: "insensitive"
-        }
-      }
-    });
+${productList}
 
-    if (!product) {
-      return "Produto não encontrado.";
-    }
+Pergunta do cliente:
+${text}
+`;
 
-    const order = await prisma.order.create({
-      data: {
-        userId: user.id,
-        tenantId,
-        items: {
-          create: [
-            {
-              productId: product.id,
-              quantity: 1
-            }
-          ]
-        }
-      },
-      include: {
-        items: {
-          include: {
-            product: true
-          }
-        }
-      }
-    });
+  return await sendToAgent("sales-agent", prompt);
 
-    return `✅ Pedido criado com sucesso!
-
-Produto: ${product.name}
-Valor: R$ ${product.price.toFixed(2)}
-
-Seu número de pedido é: ${order.id}`;
-  }
-
-  /**
-   * 3️⃣ Fallback IA OpenClaw → OpenRouter
-   */
-  try {
-    return await sendToAgent(
-      "vendas-agent",
-      `tenant-${tenantId}-user-${user.id}`,
-      text
-    );
-
-  } catch (error) {
-    console.warn("⚠ OpenClaw falhou:", error.message);
-
-    try {
-      return await askOpenRouter(text);
-    } catch (fallbackError) {
-      console.error("❌ OpenRouter também falhou:", fallbackError.message);
-      return "No momento estamos com instabilidade na IA. Tente novamente em instantes.";
-    }
-  }
 }
 
 module.exports = { handleSalesAgent };

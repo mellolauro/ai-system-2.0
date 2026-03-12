@@ -1,9 +1,16 @@
-async function salesAgent(message, context = {}) {
+const { sendToAgent } = require("../services/openclawClient");
 
-  return {
-    reply: "Olá! Sou o agente de vendas. Como posso ajudar?"
-  };
+async function salesAgent(session, message) {
+
+  const prompt = `
+Você é um assistente de vendas.
+
+Pergunta do cliente:
+${message}
+`;
+
+  return await sendToAgent("sales-agent", prompt);
 
 }
 
-module.exports = salesAgent;
+module.exports = { salesAgent };

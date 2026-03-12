@@ -1,36 +1,37 @@
 const prisma = require("../prisma");
 
-async function createOrder(userId, tenantId, productId, quantity) {
+async function createOrder(userId, tenantId, cart) {
 
-  const product = await prisma.product.findUnique({
-    where: { id: productId }
-  });
+  if (!cart || cart.items.length === 0) {
+    throw new Error("Carrinho vazio");
+  }
 
-  const total = product.price * quantity;
+  const total = cart.items.reduce(
+    (t, i) => t + i.price * i.qty,
+    0
+  );
 
   const order = await prisma.order.create({
+
     data: {
-      userId,
+
       tenantId,
+      userId,
       total,
+
       items: {
-        create: [
-          {
-            productId,
-            quantity,
-            price: product.price
-          }
-        ]
+        create: cart.items.map(i => ({
+          productId: i.productId,
+          quantity: i.qty,
+          price: i.price
+        }))
       }
-    },
-    include: {
-      items: true
+
     }
+
   });
 
   return order;
 }
 
-module.exports = {
-  createOrder
-};
+module.exports = { createOrder };

@@ -75,6 +75,46 @@ router.post("/create", upload.single("image"), async (req, res) => {
 
 });
 
+// EDIT FORM
+router.get("/edit/:id", async (req, res) => {
+
+  const product = await prisma.product.findUnique({
+    where: { id: req.params.id }
+  });
+
+  const tenants = await prisma.tenant.findMany();
+
+  res.render("product-form", {
+    product,
+    tenants
+  });
+
+});
+
+
+// UPDATE
+router.post("/update/:id", upload.single("image"), async (req, res) => {
+
+  const { name, description, price, stock, tenantId } = req.body;
+
+  await prisma.product.update({
+
+    where: { id: req.params.id },
+
+    data: {
+      name,
+      description,
+      price: parseFloat(price),
+      stock: parseInt(stock),
+      tenantId
+    }
+
+  });
+
+  res.redirect("/products");
+
+});
+
 // DELETE
 router.get("/delete/:id", async (req, res) => {
 

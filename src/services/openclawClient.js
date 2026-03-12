@@ -15,50 +15,85 @@ async function sendToAgent(agent, session, message, retries = 5) {
 
       return await new Promise((resolve, reject) => {
 
-        const ws = new WebSocket(OPENCLAW_URL);
+        const ws = new WebSocket(OPENCLAW_URL, {
+          protocol: "openclaw"
+        });
         const correlationId = uuidv4();
 
+        const timeout = setTimeout(() => {
+          ws.close();
+          reject(new Error("OpenClaw timeout"));
+        }, 60000);
+
         ws.on("open", () => {
-          console.log("[OpenClaw] socket open");
-        });
+
+           console.log("[OpenClaw] socket open");
+
+          ws.send(JSON.stringify({
+            type: "connect",
+            client: "ai-system",
+            version: "1.0"
+  }));
+
+});
 
         ws.on("message", (data) => {
 
           const msg = JSON.parse(data.toString());
 
+          // handshake challenge
           if (msg.event === "connect.challenge") {
 
             ws.send(JSON.stringify({
-              type: "connect.challenge",
-              payload: msg.payload
-            }));
+            type: "connect.challenge",
+            nonce: msg.payload.nonce,
+            ts: msg.payload.ts
+          }));
 
-            return;
-          }
+}
 
+          // gateway accepted
           if (msg.event === "connect.accepted") {
 
             ws.send(JSON.stringify({
-              type: "chat",
+
+              type: "run",
+
               agent,
-              session,
-              message,
+
+              userId: session,
+              sessionId: session,
+
+              input: message,
+
               correlationId
+
             }));
 
             return;
           }
 
-          if (msg.correlationId === correlationId) {
+          // resposta do agente
+          if (msg.event === "agent.output") {
 
-            resolve(msg.response || msg);
+            clearTimeout(timeout);
+
+            resolve(msg.data?.output || msg);
+
             ws.close();
 
           }
 
         });
 
-        ws.on("error", reject);
+        ws.on("error", (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+
+        ws.on("close", () => {
+          console.log("[OpenClaw] socket closed");
+        });
 
       });
 
