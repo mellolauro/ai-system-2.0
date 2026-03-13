@@ -1,4 +1,4 @@
-const { sendToAgent } = require("../services/openclawClient");
+const { ask } = require("../services/openclawClient");
 
 async function salesAgent(session, message) {
 
@@ -9,7 +9,9 @@ Pergunta do cliente:
 ${message}
 `;
 
-  return await sendToAgent("sales-agent", prompt);
+  const response = await ask(prompt);
+
+  return response;
 
 }
 
