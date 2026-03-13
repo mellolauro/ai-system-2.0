@@ -1,171 +1,249 @@
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
 
-const OPENCLAW_URL = "ws://127.0.0.1:18789";
+const OPENCLAW_URL = "ws://127.0.0.1:18789/__openclaw__/ws";
 
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
+let ws = null;
+let connected = false;
+let connecting = false;
+
+const pending = new Map();
+const queue = [];
+
+const REQUEST_TIMEOUT = 60000;
+const RECONNECT_DELAY = 2000;
+
+function log(...args) {
+  console.log("[OpenClaw]", ...args);
 }
 
-async function sendToAgent(agent, session, message, retries = 5) {
+/* ---------------- CONNECTION ---------------- */
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
+function connect() {
 
-    try {
+  if (connected || connecting) return;
 
-      return await new Promise((resolve, reject) => {
+  connecting = true;
 
-        const ws = new WebSocket(OPENCLAW_URL);
+  log("connecting...");
 
-        const correlationId = uuidv4();
+  ws = new WebSocket(OPENCLAW_URL);
 
-        let output = "";
-        let connected = false;
+  ws.on("open", () => {
 
-        console.log(`[OpenClaw] connecting attempt ${attempt}`);
+    log("socket open");
 
-        const timeout = setTimeout(() => {
+    ws.send(JSON.stringify({
+      type: "connect",
+      client: "ai-system",
+      version: "1.0"
+    }));
 
-          console.log("[OpenClaw] timeout");
+  });
 
-          ws.close();
+  ws.on("message", handleMessage);
 
-          reject(new Error("OpenClaw timeout"));
+  ws.on("close", () => {
 
-        }, 60000);
+    log("socket closed");
 
-        ws.on("open", () => {
+    connected = false;
+    connecting = false;
 
-          console.log("[OpenClaw] socket open");
+    setTimeout(connect, RECONNECT_DELAY);
 
-        });
+  });
 
-        ws.on("message", (data) => {
+  ws.on("error", (err) => {
 
-          let msg;
+    log("socket error:", err.message);
 
-          try {
+  });
 
-            msg = JSON.parse(data.toString());
+}
 
-          } catch {
+/* ---------------- MESSAGE HANDLER ---------------- */
 
-            console.log("[OpenClaw] invalid JSON");
+function handleMessage(data) {
 
-            return;
-          }
+  let msg;
 
-          // challenge
-          if (msg.event === "connect.challenge") {
+  try {
+    msg = JSON.parse(data.toString());
+  } catch {
+    return;
+  }
 
-            console.log("[OpenClaw] challenge received");
+  /* handshake challenge */
 
-            ws.send(JSON.stringify({
-              type: "connect.challenge",
-              payload: {
-              nonce: msg.payload.nonce,
-              ts: msg.payload.ts
-            }
-          }));
+  if (msg.event === "connect.challenge") {
 
-            return;
-          }
+    ws.send(JSON.stringify({
+      type: "connect.challenge",
+      nonce: msg.payload.nonce,
+      ts: msg.payload.ts
+    }));
 
-          // accepted
-          if (msg.event === "connect.accepted") {
+    return;
+  }
 
-            console.log("[OpenClaw] connection accepted");
+  /* handshake accepted */
 
-            connected = true;
+  if (msg.event === "connect.accepted") {
 
-            ws.send(JSON.stringify({
+    connected = true;
+    connecting = false;
 
-              type: "run",
+    log("connected");
 
-              agent,
+    flushQueue();
 
-              userId: session,
+    return;
 
-              sessionId: session,
+  }
 
-              input: message,
+  /* streaming token */
 
-              correlationId
+  if (msg.event === "agent.token") {
 
-            }));
+    const correlationId = msg.data?.correlationId;
 
-            return;
+    if (!pending.has(correlationId)) return;
 
-          }
+    const req = pending.get(correlationId);
 
-          // streaming
-          if (msg.event === "agent.delta") {
-
-            const chunk = msg.data?.delta || "";
-
-            output += chunk;
-
-            return;
-
-          }
-
-          // final output
-          if (msg.event === "agent.output") {
-
-            clearTimeout(timeout);
-
-            const result = msg.data?.output || output;
-
-            console.log("[OpenClaw] response received");
-
-            ws.close();
-
-            resolve(result);
-
-          }
-
-        });
-
-        ws.on("error", (err) => {
-
-          clearTimeout(timeout);
-
-          console.log("[OpenClaw] error", err.message);
-
-          reject(err);
-
-        });
-
-        ws.on("close", () => {
-
-          console.log("[OpenClaw] socket closed");
-
-          if (!connected) {
-
-            reject(new Error("connection closed before handshake"));
-
-          }
-
-        });
-
-      });
-
-    } catch (err) {
-
-      console.log(`[OpenClaw] tentativa ${attempt} falhou`);
-
-      if (attempt === retries) {
-
-        throw err;
-
-      }
-
-      await sleep(2000);
-
+    if (req.onToken) {
+      req.onToken(msg.data.token);
     }
+
+    return;
+
+  }
+
+  /* final output */
+
+  if (msg.event === "agent.output") {
+
+    const correlationId = msg.data?.correlationId;
+
+    if (!pending.has(correlationId)) return;
+
+    const req = pending.get(correlationId);
+
+    req.resolve(msg.data.output);
+
+    pending.delete(correlationId);
+
+    return;
 
   }
 
 }
+
+/* ---------------- QUEUE ---------------- */
+
+function flushQueue() {
+
+  while (queue.length > 0 && connected) {
+
+    const job = queue.shift();
+
+    send(job);
+
+  }
+
+}
+
+/* ---------------- SEND ---------------- */
+
+function send(job) {
+
+  const correlationId = uuidv4();
+
+  pending.set(correlationId, job);
+
+  ws.send(JSON.stringify({
+
+    type: "run",
+
+    agent: job.agent,
+
+    userId: job.session,
+    sessionId: job.session,
+
+    input: job.message,
+
+    correlationId
+
+  }));
+
+  setTimeout(() => {
+
+    if (pending.has(correlationId)) {
+
+      pending.delete(correlationId);
+
+      job.reject(new Error("OpenClaw timeout"));
+
+    }
+
+  }, REQUEST_TIMEOUT);
+
+}
+
+/* ---------------- PUBLIC API ---------------- */
+
+function sendToAgent(agent, session, message, options = {}) {
+
+  return new Promise((resolve, reject) => {
+
+    const job = {
+      agent,
+      session,
+      message,
+      resolve,
+      reject,
+      onToken: options.onToken
+    };
+
+    if (!connected) {
+
+      log("queue message (not connected)");
+
+      queue.push(job);
+
+      connect();
+
+      return;
+
+    }
+
+    send(job);
+
+  });
+
+}
+
+/* ---------------- HEALTH CHECK ---------------- */
+
+setInterval(() => {
+
+  if (!ws) return;
+
+  if (ws.readyState !== WebSocket.OPEN) {
+
+    log("health check failed → reconnecting");
+
+    connected = false;
+
+    connect();
+
+  }
+
+}, 15000);
+
+/* start connection */
+
+connect();
 
 module.exports = { sendToAgent };
