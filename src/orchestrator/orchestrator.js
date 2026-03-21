@@ -2,42 +2,37 @@ const { detectIntent } = require("../services/agentRouter");
 const { salesAgent } = require("../agents/salesAgent");
 const { ask } = require("../services/openclawClient");
 
-/**
- * Orquestrador principal do AI-System 2.0
- */
+const DEFAULT_MODEL =
+  process.env.DEFAULT_MODEL || "openrouter/google/gemini-2.5-flash";
+
 async function orchestrateMessage({
   session,
   message,
   text,
   user,
   channel,
-  agentType = "default",
+  agentType = null,
   systemPrompt = null
 }) {
 
   const tenant = user.tenant;
 
-  /**
-   * 🔎 1️⃣ Detectar intenção automaticamente
-   */
   const detectedIntent = detectIntent(text);
 
-  /**
-   * 🛒 2️⃣ Se for VENDAS → resolver internamente
-   */
-  if (detectedIntent === "sales") {
+if (detectedIntent === "sales") {
+  // Passamos o nome exato da pasta do agente para o OpenClaw
+  return await salesAgent(session, text); 
+}
 
-    const salesResponse = await salesAgent(session, message);
-
-    if (salesResponse) {
-      return salesResponse;
-    }
-
-  }
-
-  /**
-   * 🤖 3️⃣ Caso contrário → usar IA via OpenClaw
-   */
+if (detectedIntent === "support") {
+  // Você pode criar um supportAgent.js seguindo a mesma lógica do sales
+  const supportResponse = await ask({
+    text: text,
+    session: session?.id || "support",
+    agent: "suporte-agent" // Bate com a pasta src/agents/suporte-agent
+  });
+  if (supportResponse) return supportResponse;
+}
 
   const finalSystemPrompt =
     systemPrompt ||
@@ -52,7 +47,17 @@ Seja profissional, claro e objetivo.`;
 Usuário: ${text}
 `;
 
-    const response = await ask(prompt);
+    const agentFinal = 
+      !agentType || agentType === "default"
+        ? DEFAULT_MODEL
+        : agentType;
+
+    const response = await ask({
+       text: text, // O texto limpo do usuário
+       session: session?.id || "default",
+       agent: agentType || "main", // Use o nome do agente configurado no OpenClaw
+       systemPrompt: finalSystemPrompt // Passe o sistema separado
+});
 
     return response;
 
@@ -60,10 +65,8 @@ Usuário: ${text}
 
     console.error("Erro OpenClaw:", error);
 
-    return "Erro ao consultar IA.";
-
+    return "Desculpe, estou com instabilidade no momento.";
   }
-
 }
 
 module.exports = { orchestrateMessage };

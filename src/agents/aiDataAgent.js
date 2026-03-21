@@ -1,55 +1,52 @@
 const prisma = require("../prisma");
-const { sendToAgent } = require("../services/openclawClient");
+const { ask } = require("../services/openclawClient"); // Import correto
 const { systemPrompt } = require("../prompts/aiDataPrompt");
 
-async function handleAIDataAgent({ text, user }) {
-
+async function handleAIDataAgent({ text, user, session }) {
   const tenantId = user.tenantId;
 
-  /**
-   Buscar produtos
-  */
-  const products = await prisma.product.findMany({
-    where: {
-      tenantId,
-      active: true
-    },
-    select: {
-      name: true,
-      price: true,
-      stock: true
-    }
-  });
+  try {
+    // 1. Busca produtos reais do Prisma
+    const products = await prisma.product.findMany({
+      where: {
+        tenantId,
+        active: true
+      },
+      select: {
+        name: true,
+        price: true,
+        stock: true
+      }
+    });
 
-  /**
-   Criar contexto para IA
-  */
-  const context = `
-PRODUTOS DISPONÍVEIS:
+    // 2. Formata a vitrine de produtos para o contexto da IA
+    const contextProducts = products.length > 0 
+      ? products.map(p => `- ${p.name}: R$ ${p.price} (Estoque: ${p.stock})`).join("\n")
+      : "Nenhum produto cadastrado no momento.";
 
-${products.map(p => `
-${p.name}
-Preço: ${p.price}
-Estoque: ${p.stock}
-`).join("\n")}
-`;
+    // 3. Monta o corpo da mensagem
+    const fullMessage = `
+CONTEXTO DA LOJA (PRODUTOS):
+${contextProducts}
 
-  const prompt = `
-${systemPrompt}
-
-${context}
-
-Pergunta do cliente:
+PERGUNTA DO USUÁRIO:
 ${text}
 `;
 
-  const response = await sendToAgent(
-    "vendas-agent",
-    `tenant-${tenantId}-user-${user.id}`,
-    prompt
-  );
+    // 4. Chama o OpenClaw com a assinatura de objeto correta
+    const response = await ask({
+      text: fullMessage,
+      session: session?.id || `tenant-${tenantId}`,
+      agent: "main", // Mudamos para "main" pois você mencionou não ter o "vendas-agent" configurado no OpenClaw
+      systemPrompt: systemPrompt
+    });
 
-  return response;
+    return response;
+
+  } catch (error) {
+    console.error("❌ Erro no AIDataAgent:", error.message);
+    return "Desculpe, tive um problema ao consultar nosso estoque. Pode repetir?";
+  }
 }
 
 module.exports = { handleAIDataAgent };
