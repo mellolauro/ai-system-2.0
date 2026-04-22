@@ -1,65 +1,79 @@
 const WebSocket = require("ws");
+const axios = require("axios");
+const crypto = require("crypto");
+const { v4: uuidv4 } = require("uuid");
 
-const RAW_URL = process.env.OPENCLAW_URL || "ws://192.168.1.5:18789";
+const BASE_URL = (process.env.OPENCLAW_URL || "ws://127.0.0.1:18789").replace(/\/$/, "");
 const TOKEN = process.env.OPENCLAW_TOKEN;
 
-const BASE_URL = RAW_URL.replace("/v1", "");
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const DEFAULT_MODEL = process.env.DEFAULT_MODEL || "google/gemini-2.5-flash";
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* =========================
+   🔥 WS SINGLETON
+========================= */
 
 let ws = null;
 let isConnected = false;
+let isAuthenticated = false;
 let isConnecting = false;
 
-let reconnectDelay = 3000;
-const MAX_RECONNECT_DELAY = 30000;
+const pending = new Map();
+const queue = [];
 
-let pending = new Map();
-let queue = [];
-
-let heartbeatInterval = null;
-
-console.log("🚀 [OpenClaw] Client inicializando (v2026 enterprise)...");
-
-/**
- * UUID simples
- */
-function uuid() {
-    return Math.random().toString(36).substring(2, 11);
-}
-
-/**
- * Conectar (singleton)
- */
 function connect() {
-    if (isConnected || isConnecting) return;
+    if (isConnecting || isConnected) return;
 
     isConnecting = true;
 
-    console.log(`[OpenClaw] 📡 Conectando em: ${BASE_URL}`);
+    const url = `${BASE_URL}/v1?token=${TOKEN}`;
 
-    ws = new WebSocket(BASE_URL, {
+    console.log("[OpenClaw] 📡 Conectando...");
+
+    ws = new WebSocket(url, {
         headers: {
-            "Authorization": `Bearer ${TOKEN}`,
-            "x-openclaw-client": "ai-system-2.0",
-            "User-Agent": "OpenClaw-AI-System/2.0"
-        },
-        handshakeTimeout: 10000
+            "x-openclaw-client": "ai-system-2.0"
+        }
     });
 
     ws.on("open", () => {
-        console.log("[OpenClaw] ✅ Conectado");
-
-        isConnected = true;
-        isConnecting = false;
-
-        reconnectDelay = 3000;
-
-        startHeartbeat();
-        flushQueue();
+        console.log("[OpenClaw] 🔌 Socket aberto");
     });
 
     ws.on("message", (data) => {
         try {
             const res = JSON.parse(data.toString());
+
+            // 🔐 challenge
+            if (res.type === "event" && res.event === "connect.challenge") {
+                const nonce = res.payload.nonce;
+
+                const signature = crypto
+                    .createHmac("sha256", TOKEN)
+                    .update(nonce)
+                    .digest("hex");
+
+                ws.send(JSON.stringify({
+                    type: "connect.authenticate",
+                    payload: { token: TOKEN, nonce, signature }
+                }));
+
+                return;
+            }
+
+            // ✅ autenticado
+            if (res.type === "event" && res.event === "connect.authenticated") {
+                console.log("[OpenClaw] ✅ Autenticado");
+
+                isConnected = true;
+                isAuthenticated = true;
+                isConnecting = false;
+
+                flushQueue();
+                return;
+            }
 
             if (!res.id) return;
 
@@ -67,152 +81,118 @@ function connect() {
             if (!req) return;
 
             if (res.type === "output") {
-                req.stream += res.payload?.content || "";
-                return;
+                const chunk = res.payload?.content || "";
+                req.buffer += chunk;
+
+                if (req.onToken) req.onToken(chunk);
             }
 
             if (res.type === "result") {
                 pending.delete(res.id);
-
-                const final =
-                    req.stream ||
-                    res.payload?.content ||
-                    res.payload?.output ||
-                    "";
-
-                req.resolve(final);
+                req.resolve(req.buffer || res.payload?.content || "");
             }
 
             if (res.type === "error") {
                 pending.delete(res.id);
-                req.reject(
-                    new Error(res.payload?.message || "Erro no gateway")
-                );
+                req.reject(new Error(res.payload?.message));
             }
+
         } catch (err) {
-            console.error("[OpenClaw] parse error:", err.message);
+            console.error("[OpenClaw] parse error", err.message);
         }
     });
 
-    ws.on("close", (code) => {
-        console.warn(`[OpenClaw] 🔌 Desconectado (${code})`);
+    ws.on("close", () => {
+        console.warn("[OpenClaw] 🔌 Desconectado");
 
-        cleanup();
+        isConnected = false;
+        isAuthenticated = false;
+        isConnecting = false;
 
-        // rejeita requisições pendentes
-        pending.forEach((req) =>
-            req.reject(new Error("Conexão perdida"))
-        );
+        // rejeita pendentes
+        pending.forEach((p) => p.reject(new Error("Conexão perdida")));
         pending.clear();
 
-        scheduleReconnect();
+        setTimeout(connect, 2000);
     });
 
     ws.on("error", (err) => {
         console.error("[OpenClaw] 🔥 erro:", err.message);
     });
-
-    ws.on("unexpected-response", (req, res) => {
-        console.error(
-            `[OpenClaw] ❌ Handshake rejeitado: ${res.statusCode}`
-        );
-    });
 }
 
-/**
- * Heartbeat (mantém conexão viva)
- */
-function startHeartbeat() {
-    stopHeartbeat();
-
-    heartbeatInterval = setInterval(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.ping();
-        }
-    }, 15000);
-}
-
-function stopHeartbeat() {
-    if (heartbeatInterval) {
-        clearInterval(heartbeatInterval);
-        heartbeatInterval = null;
-    }
-}
-
-/**
- * Reconnect inteligente
- */
-function scheduleReconnect() {
-    isConnected = false;
-    isConnecting = false;
-
-    console.log(
-        `[OpenClaw] 🔄 Reconectando em ${reconnectDelay / 1000}s...`
-    );
-
-    setTimeout(connect, reconnectDelay);
-
-    reconnectDelay = Math.min(
-        reconnectDelay * 1.5,
-        MAX_RECONNECT_DELAY
-    );
-}
-
-/**
- * Cleanup conexão
- */
-function cleanup() {
-    stopHeartbeat();
-
-    if (ws) {
-        try {
-            ws.terminate();
-        } catch {}
-        ws = null;
-    }
-}
-
-/**
- * Envio seguro
- */
 function send(payload) {
-    if (!isConnected) {
+    if (!isAuthenticated) {
         queue.push(payload);
         connect();
         return;
     }
 
-    try {
-        ws.send(JSON.stringify(payload));
-    } catch (err) {
-        console.error("[OpenClaw] erro ao enviar:", err.message);
-        queue.push(payload);
-    }
+    ws.send(JSON.stringify(payload));
 }
 
-/**
- * Flush fila
- */
 function flushQueue() {
-    while (queue.length > 0 && isConnected) {
-        const payload = queue.shift();
-        ws.send(JSON.stringify(payload));
+    while (queue.length) {
+        ws.send(JSON.stringify(queue.shift()));
     }
 }
 
-/**
- * API principal
- */
-function ask({
+/* =========================
+   🚀 ASK PRINCIPAL
+========================= */
+
+async function ask({
     text,
     session = "main",
     agent = "main",
-    timeout = 60000
+    timeout = 60000,
+    retries = 2,
+    stream = false,
+    onToken = null
 }) {
-    return new Promise((resolve, reject) => {
-        const id = uuid();
+    const traceId = uuidv4().slice(0, 8);
 
-        const payload = {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            console.log(`[OpenClaw][${traceId}] 🚀 Tentativa ${attempt + 1}`);
+
+            const result = await askWS({
+                text,
+                session,
+                agent,
+                timeout,
+                stream,
+                onToken
+            });
+
+            return result;
+
+        } catch (err) {
+            console.warn(`[OpenClaw][${traceId}] ⚠️ ${err.message}`);
+
+            if (attempt < retries) {
+                await wait(1000 * (attempt + 1));
+                continue;
+            }
+
+            console.warn(`[OpenClaw][${traceId}] 🔁 fallback`);
+            return fallbackOpenRouter(text);
+        }
+    }
+}
+
+function askWS({ text, session, agent, timeout, stream, onToken }) {
+    return new Promise((resolve, reject) => {
+        const id = uuidv4();
+
+        pending.set(id, {
+            resolve,
+            reject,
+            buffer: "",
+            onToken: stream ? onToken : null
+        });
+
+        send({
             id,
             type: "execute",
             payload: {
@@ -220,26 +200,64 @@ function ask({
                 sessionId: session,
                 content: text
             }
-        };
-
-        pending.set(id, {
-            resolve,
-            reject,
-            stream: ""
         });
-
-        send(payload);
 
         setTimeout(() => {
             if (pending.has(id)) {
                 pending.delete(id);
-                reject(new Error("Timeout da IA"));
+                reject(new Error("Timeout OpenClaw"));
             }
         }, timeout);
     });
 }
 
-// inicia automático
+/* =========================
+   🔁 FALLBACK
+========================= */
+
+async function fallbackOpenRouter(text) {
+    const res = await axios.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+            model: DEFAULT_MODEL,
+            messages: [{ role: "user", content: text }]
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json"
+            }
+        }
+    );
+
+    return res.data.choices[0].message.content;
+}
+
+/* =========================
+   📦 TELEGRAM SAFE
+========================= */
+
+function splitMessage(text, max = 4000) {
+    const parts = [];
+    for (let i = 0; i < text.length; i += max) {
+        parts.push(text.slice(i, i + max));
+    }
+    return parts;
+}
+
+async function sendTelegramSafe(bot, chatId, text) {
+    const parts = splitMessage(text);
+
+    for (const part of parts) {
+        await bot.sendMessage(chatId, part);
+    }
+}
+
+/* ========================= */
+
 connect();
 
-module.exports = { ask };
+module.exports = {
+    ask,
+    sendTelegramSafe
+};
