@@ -1,52 +1,31 @@
-function detectIntent(message) {
-  const text = message.toLowerCase();
+const { ask } = require("../services/openclawClient");
 
-  const salesKeywords = [
-    "comprar",
-    "preço",
-    "valor",
-    "quanto custa",
-    "contratar",
-    "plano"
-  ];
+async function routeAgent({ text, tenantId }) {
+    const prompt = `
+Classifique a intenção do usuário:
 
-  const supportKeywords = [
-    "erro",
-    "bug",
-    "problema",
-    "não funciona",
-    "suporte",
-    "ajuda"
-  ];
+"${text}"
 
-  if (salesKeywords.some(word => text.includes(word))) {
-    return "sales";
-  }
+Responda SOMENTE com uma dessas opções:
+- sales
+- support
+- order
+- fallback
+`;
 
-  if (supportKeywords.some(word => text.includes(word))) {
-    return "support";
-  }
+    const result = await ask({
+        text: prompt,
+        session: `router-${tenantId}`,
+        agent: "router"
+    });
 
-  return "default";
+    const clean = result.toLowerCase();
+
+    if (clean.includes("sales")) return "sales";
+    if (clean.includes("support")) return "support";
+    if (clean.includes("order")) return "order";
+
+    return "fallback";
 }
 
-function routeAgent(message) {
-
-  const intent = detectIntent(message);
-
-  switch (intent) {
-    case "sales":
-      return "salesAgent";
-
-    case "support":
-      return "supportAgent";
-
-    default:
-      return "defaultAgent";
-  }
-}
-
-module.exports = {
-  detectIntent,
-  routeAgent
-};
+module.exports = { routeAgent };

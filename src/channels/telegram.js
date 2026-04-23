@@ -1,10 +1,19 @@
 const sessions = {};
 const TelegramBot = require("node-telegram-bot-api");
 const prisma = require("../prisma");
-const { orchestrateMessage } = require("../orchestrator/orchestrator");
-const { detectIntent } = require("../services/agentRouter");
-const { buildSystemPrompt } = require("../services/agents");
-const { createOrder } = require("../services/orderService");
+
+// ✅ NOVO ORCHESTRATOR
+const { handleMessage } = require("../orchestrator");
+
+// ✅ SAFE SEND
+const { sendTelegramSafe } = require("./utils/sendSafe");
+
+// ❌ NÃO USAR MAIS
+// const { detectIntent } = require("../services/agentRouter");
+// const { buildSystemPrompt } = require("../services/agents");
+
+// ⚠️ createOrder só via agent agora (não direto aqui)
+// const { createOrder } = require("../services/orderService");
 
 function initTelegram() {
 
@@ -14,32 +23,35 @@ function initTelegram() {
   }
 
   const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, {
-     polling: {
-     interval: 1000,
-     autoStart: true,
-     params: {
-       timeout: 10
+    polling: {
+      interval: 1000,
+      autoStart: true,
+      params: { timeout: 10 }
     }
-  }
-});
+  });
 
   bot.on("message", async (msg) => {
 
     if (!msg.text) return;
 
     const telegramId = String(msg.from.id);
-    const text = msg.text.toLowerCase();
+    const text = msg.text.trim().toLowerCase();
 
-    // 🧠 sessão
+    // ============================
+    // 🧠 SESSION
+    // ============================
     if (!sessions[telegramId]) {
-      sessions[telegramId] = { step: "start", processing: false };
+      sessions[telegramId] = {
+        step: "start",
+        processing: false
+      };
     }
 
     const session = sessions[telegramId];
 
-    // 🚫 evita flood
+    // 🚫 anti flood
     if (session.processing) {
-      return bot.sendMessage(msg.chat.id, "⏳ Aguarde...");
+      return sendTelegramSafe(bot, msg.chat.id, "⏳ Aguarde...");
     }
 
     session.processing = true;
@@ -47,7 +59,7 @@ function initTelegram() {
     try {
 
       // ============================
-      // 1️⃣ USER
+      // 👤 USER / TENANT
       // ============================
       let user = await prisma.user.findUnique({
         where: { telegramId },
@@ -61,8 +73,7 @@ function initTelegram() {
         });
 
         if (!defaultTenant) {
-          session.processing = false;
-          return bot.sendMessage(msg.chat.id, "Nenhum tenant configurado.");
+          return sendTelegramSafe(bot, msg.chat.id, "Nenhum tenant configurado.");
         }
 
         user = await prisma.user.create({
@@ -73,11 +84,10 @@ function initTelegram() {
           },
           include: { tenant: true }
         });
-
       }
 
       // ============================
-      // 🛒 FLUXO DE COMPRA
+      // 🛒 FLUXO DE COMPRA (CONTROLADO)
       // ============================
 
       if (text === "comprar") {
@@ -90,40 +100,34 @@ function initTelegram() {
         });
 
         if (!products.length) {
-          session.processing = false;
-          return bot.sendMessage(msg.chat.id, "Nenhum produto disponível.");
+          return sendTelegramSafe(bot, msg.chat.id, "Nenhum produto disponível.");
         }
 
         session.products = products;
         session.step = "choose_product";
 
-        let message = "🛍 Escolha um produto:\n\n";
+        let message = "🛍️ Escolha um produto:\n\n";
 
         products.forEach((p, i) => {
           message += `${i + 1}️⃣ ${p.name} - R$${p.price}\n`;
         });
 
-        session.processing = false;
-        return bot.sendMessage(msg.chat.id, message);
-
+        return sendTelegramSafe(bot, msg.chat.id, message);
       }
 
       if (session.step === "choose_product") {
 
         const index = parseInt(text) - 1;
-        const product = session.products[index];
+        const product = session.products?.[index];
 
         if (!product) {
-          session.processing = false;
-          return bot.sendMessage(msg.chat.id, "Produto inválido.");
+          return sendTelegramSafe(bot, msg.chat.id, "Produto inválido.");
         }
 
         session.product = product;
         session.step = "choose_quantity";
 
-        session.processing = false;
-        return bot.sendMessage(msg.chat.id, "Quantas unidades?");
-
+        return sendTelegramSafe(bot, msg.chat.id, "Quantas unidades?");
       }
 
       if (session.step === "choose_quantity") {
@@ -131,78 +135,79 @@ function initTelegram() {
         const quantity = parseInt(text);
 
         if (!quantity || quantity <= 0) {
-          session.processing = false;
-          return bot.sendMessage(msg.chat.id, "Quantidade inválida.");
+          return sendTelegramSafe(bot, msg.chat.id, "Quantidade inválida.");
         }
+
+        // ✅ monta cart corretamente
+        const cart = {
+          items: [
+            {
+              productId: session.product.id,
+              qty: quantity,
+              price: session.product.price
+            }
+          ]
+        };
+
+        const { createOrder } = require("../services/orderService");
 
         const order = await createOrder(
           user.id,
           user.tenantId,
-          session.product.id,
-          quantity
+          cart
         );
 
         session.step = "start";
+        session.product = null;
 
-        session.processing = false;
-
-        return bot.sendMessage(
+        return sendTelegramSafe(
+          bot,
           msg.chat.id,
-          `✅ Pedido criado!\n\nProduto: ${session.product.name}\nQuantidade: ${quantity}\nTotal: R$${order.total}`
-        );
+          `✅ Pedido criado!
 
+📦 Produto: ${order.items?.[0]?.productId || session.product.name}
+🔢 Quantidade: ${quantity}
+💰 Total: R$ ${order.total}`
+        );
       }
 
       // ============================
-      // 🤖 IA
+      // 🤖 IA (MULTI-AGENT REAL)
       // ============================
 
-      bot.sendChatAction(msg.chat.id, "typing");
+      await bot.sendChatAction(msg.chat.id, "typing");
 
-      const agentType = detectIntent(msg.text);
-      const systemPrompt = buildSystemPrompt(agentType, user.tenant);
-
-      let partial = "";
-
-      const response = await orchestrateMessage({
-        session, // 🔥 IMPORTANTE
-        message: msg.text,
+      const response = await handleMessage({
         text: msg.text,
+        sessionId: `tg-${msg.chat.id}`,
+        tenantId: user.tenantId,
         user,
-        channel: "telegram",
-        agentType,
-        systemPrompt,
-
-        // 🔥 STREAMING (opcional)
-        onStream: (chunk) => {
-          partial += chunk;
-        }
+        session
       });
 
-      await bot.sendMessage(
+      await sendTelegramSafe(
+        bot,
         msg.chat.id,
-        response || partial || "Sem resposta."
+        response || "Sem resposta."
       );
 
     } catch (err) {
 
       console.error("Erro Telegram:", err);
 
-      await bot.sendMessage(
+      await sendTelegramSafe(
+        bot,
         msg.chat.id,
-        "⚠️ Erro interno. Tente novamente."
+        "❌ Erro interno. Tente novamente."
       );
 
     } finally {
-
       session.processing = false;
-
     }
 
   });
 
-  console.log("📲 Telegram ativo (multi-tenant + multi-agent).");
-
+  console.log("🤖 Telegram ativo (multi-tenant + multi-agent).");
 }
 
 module.exports = { initTelegram };

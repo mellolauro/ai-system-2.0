@@ -1,17 +1,19 @@
 const { ask } = require("../services/openclawClient");
 
-async function salesAgent({ text, user, session }) {
-  // Criamos um System Prompt específico para o comportamento de vendas
-  const systemPrompt = `Você é o especialista de VENDAS da empresa ${user?.tenant?.name || 'nossa loja'}. 
-  Seu objetivo é converter curiosidade em vendas, ser persuasivo e cordial. 
-  Canal de atendimento: Telegram.`;
+async function run({ text, memory }) {
+    const prompt = `
+Você é um especialista em vendas.
 
-  return await ask({
-    text: text,
-    session: session?.id || "sales-session",
-    agent: "main", // Aqui você usa o nome da pasta que contém o SOUL.md principal
-    systemPrompt: systemPrompt
-  });
+Histórico:
+${memory.join("\n")}
+
+Cliente:
+${text}
+
+Seja persuasivo e objetivo.
+`;
+
+    return ask({ text: prompt, agent: "sales" });
 }
 
-module.exports = { salesAgent };
+module.exports = { run };
