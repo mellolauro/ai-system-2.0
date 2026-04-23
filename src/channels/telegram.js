@@ -193,7 +193,7 @@ function initTelegram() {
 
     } catch (err) {
 
-      console.error("Erro Telegram:", err);
+      console.error("🔥 ERRO COMPLETO:", err.stack);
 
       await sendTelegramSafe(
         bot,

@@ -1,14 +1,19 @@
 const { ask } = require("../services/openclawClient");
 
-async function supportAgent({ text, user, session }) {
-  const systemPrompt = `Você é o técnico de SUPORTE da empresa ${user?.tenant?.name}. 
-  Seu objetivo é resolver problemas técnicos com paciência e clareza.`;
+async function supportAgent({ text }) {
 
   return await ask({
-    text: text,
-    session: session?.id || "support-session",
-    agent: "main", 
-    systemPrompt: systemPrompt
+    text: `
+Você é suporte ao cliente.
+
+Ajude com problemas como:
+- atraso
+- pedido
+- entrega
+
+Mensagem:
+${text}
+`
   });
 }
 

@@ -1,6 +1,6 @@
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -8,29 +8,43 @@ generator client {
 }
 
 model Tenant {
-  id               String      @id @default(cuid())
-  name             String
-  plan             String      @default("free")
-  maxTokens        Int         @default(50000)
-  active           Boolean     @default(true)
-  agentName        String
+  id        String  @id @default(cuid())
+  name      String
+  plan      String  @default("free")
+  maxTokens Int     @default(50000)
+  active    Boolean @default(true)
+  agentName String
+
   users            User[]
   products         Product[]
   orders           Order[]
+  tools            Tool[]
   whatsappSessions WhatsAppSession[]
+  conversations    Conversation[]
+  carts            Cart[]
 
-  createdAt        DateTime    @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([active])
 }
 
 model User {
-  id         String   @id @default(cuid())
-  telegramId String   @unique
-  name       String
+  id         String  @id @default(cuid())
+  telegramId String? @unique
   email      String?
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  orders     Order[]
-  createdAt  DateTime @default(now())
+  name       String
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  orders        Order[]
+  memories      UserMemory[]
+  carts         Cart[]
+  conversations Conversation[]
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 enum OrderStatus {
@@ -41,53 +55,188 @@ enum OrderStatus {
 }
 
 model Product {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   description String?
   price       Float
-  stock       Int      @default(0)
+  stock       Int     @default(0)
   imageUrl    String?
-  active      Boolean  @default(true)
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  images      ProductImage[]
-  orderItems  OrderItem[]
+  active      Boolean @default(true)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  images     ProductImage[]
+  orderItems OrderItem[]
+  cartItems  CartItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, active])
 }
 
 model Order {
-  id        String      @id @default(cuid())
-  tenantId  String
-  tenant    Tenant      @relation(fields: [tenantId], references: [id])
-  userId    String
-  user      User        @relation(fields: [userId], references: [id])
-  status    OrderStatus @default(PENDING)
-  total     Float
-  items     OrderItem[]
-  createdAt DateTime    @default(now())
+  id String @id @default(cuid())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  status OrderStatus @default(PENDING)
+  total  Float
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, userId])
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String
-  order     Order   @relation(fields: [orderId], references: [id])
+  id String @id @default(cuid())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
   productId String
   product   Product @relation(fields: [productId], references: [id])
-  quantity  Int
-  price     Float
+
+  quantity Int
+  price    Float
+
+  @@index([orderId])
 }
 
 model ProductImage {
-  id        String  @id @default(cuid())
-  url       String
+  id  String @id @default(cuid())
+  url String
+
   productId String
   product   Product @relation(fields: [productId], references: [id])
 }
 
 model WhatsAppSession {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   phone     String
-  sessionId String  
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  sessionId String
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
   createdAt DateTime @default(now())
+}
+
+model UserMemory {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  key   String
+  value String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+  @@index([userId])
+}
+
+model Conversation {
+  id String @id @default(cuid())
+
+  userId   String
+  tenantId String
+
+  user   User   @relation(fields: [userId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  messages Message[]
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, tenantId])
+}
+
+model Message {
+  id String @id @default(cuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  role    String // user | assistant | system
+  content String
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+}
+
+model Cart {
+  id String @id @default(cuid())
+
+  userId   String
+  tenantId String
+
+  user   User   @relation(fields: [userId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  status String @default("active")
+
+  items CartItem[]
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([userId, status])
+}
+
+model CartItem {
+  id String @id @default(cuid())
+
+  cartId String
+  cart   Cart   @relation(fields: [cartId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Int
+
+  @@index([cartId])
+}
+
+model Tool {
+  id String @id @default(cuid())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name   String
+  type   String // api | internal | webhook
+  config Json
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, active])
+}
+
+model AIRequest {
+  id String @id @default(cuid())
+
+  tenantId String
+  userId   String?
+
+  prompt   String
+  response String?
+
+  tokens Int?
+  agent  String
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
 }
