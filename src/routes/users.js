@@ -6,20 +6,23 @@ const prisma = require("../prisma");
 // ==========================
 // LISTAR USUÁRIOS
 // ==========================
-router.get("/", async (req, res) => {
+router.get("/", async (req, res, next) => {
+  try {
+    const users = await prisma.user.findMany({
+      include: {
+        tenant: true,
+        _count: {
+          select: { orders: true, memories: true, conversations: true }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
 
-  const users = await prisma.user.findMany({
-    include: {
-      tenant: true
-    }
-  });
-
-  res.render("users", {
-    users
-  });
-
+    res.render("users", { users });
+  } catch (err) {
+    next(err);
+  }
 });
-
 
 // ==========================
 // NOVO USUÁRIO
@@ -38,23 +41,46 @@ router.get("/new", async (req, res) => {
 // ==========================
 // CRIAR USUÁRIO
 // ==========================
-router.post("/create", async (req, res) => {
-
-  const { name, email, telegramId, tenantId } = req.body;
-
-  await prisma.user.create({
-    data: {
-      name,
-      email,
-      telegramId,
-      tenantId
-    }
-  });
-
-  res.redirect("/users");
-
+// CREATE
+router.post("/create", async (req, res, next) => {
+  try {
+    const { name, email, phone, telegramId, role, tenantId } = req.body;
+    await prisma.user.create({
+      data: {
+        name,
+        email: email || null,
+        phone: phone || null,
+        telegramId: telegramId || null,
+        role: role || "USER",
+        tenantId
+      }
+    });
+    res.redirect("/users");
+  } catch (err) {
+    next(err);
+  }
 });
 
+// UPDATE
+router.post("/update/:id", async (req, res, next) => {
+  try {
+    const { name, email, phone, telegramId, role, tenantId } = req.body;
+    await prisma.user.update({
+      where: { id: req.params.id },
+      data: {
+        name,
+        email: email || null,
+        phone: phone || null,
+        telegramId: telegramId || null,
+        role: role || "USER",
+        tenantId
+      }
+    });
+    res.redirect("/users");
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ==========================
 // EDITAR

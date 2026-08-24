@@ -1,30 +1,45 @@
 const express = require("express");
 const router = express.Router();
-
 const prisma = require("../prisma");
 
-router.get("/", async (req, res) => {
-
+router.get("/", async (req, res, next) => {
   try {
+    const [
+      productsCount,
+      usersCount,
+      tenantsCount,
+      ordersCount,
+      paidOrders,
+      recentOrders
+    ] = await Promise.all([
+      prisma.product.count({ where: { active: true } }),
+      prisma.user.count(),
+      prisma.tenant.count({ where: { active: true } }),
+      prisma.order.count(),
+      prisma.order.findMany({
+        where: { paymentStatus: "PAID" },
+        select: { total: true }
+      }),
+      prisma.order.findMany({
+        take: 5,
+        orderBy: { createdAt: "desc" },
+        include: { user: true }
+      })
+    ]);
 
-    const tenantsCount = await prisma.tenant.count();
-    const productsCount = await prisma.product.count();
-    const usersCount = await prisma.user.count();
+    const totalRevenue = paidOrders.reduce((acc, curr) => acc + (curr.total || 0), 0);
 
     res.render("dashboard", {
-      tenantsCount,
       productsCount,
-      usersCount
+      usersCount,
+      tenantsCount,
+      ordersCount,
+      revenue: totalRevenue,
+      recentOrders
     });
-
-  } catch (error) {
-
-    console.error("Erro no dashboard:", error);
-
-    res.send("Erro ao carregar dashboard");
-
+  } catch (err) {
+    next(err);
   }
-
 });
 
 module.exports = router;

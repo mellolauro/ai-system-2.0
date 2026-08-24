@@ -29,19 +29,26 @@
                 <!-- PRODUTO -->
                 <td class="p-4 flex items-center gap-4">
 
-                    <div class="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden border">
-
-                        <% if (p.images.length) { %>
-                            <img src="<%= p.images[0].url %>"
-                                 class="w-full h-full object-cover">
-                        <% } else { %>
-                            <div class="w-full h-full flex items-center justify-center text-slate-400 text-xs">
-                                Sem foto
-                            </div>
-                        <% } %>
-
-                    </div>
-
+                 <div class="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden border flex items-center justify-center">
+                   <% 
+                     const photoUrl = (p.images && p.images.length > 0) ? p.images[0].url : p.imageUrl;
+                   %>
+                   <% if (photoUrl) { %>
+                     <img 
+                       src="<%= photoUrl %>" 
+                       alt="<%= p.name %>"
+                       class="w-full h-full object-cover"
+                       onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                     />
+                     <div class="w-full h-full hidden items-center justify-center text-slate-400 text-[10px] font-medium bg-slate-100">
+                       Sem foto
+                     </div>
+                   <% } else { %>
+                     <div class="w-full h-full flex items-center justify-center text-slate-400 text-[10px] font-medium bg-slate-100">
+                       Sem foto
+                     </div>
+                   <% } %>
+                 </div>
                     <span class="font-medium text-slate-700">
                         <%= p.name %>
                     </span>

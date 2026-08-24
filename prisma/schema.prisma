@@ -7,6 +7,37 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+// ==========================================
+// MULTI-TENANCY & AGENTES
+// ==========================================
+
 model Tenant {
   id        String  @id @default(cuid())
   name      String
@@ -28,114 +59,41 @@ model Tenant {
   @@index([active])
 }
 
+// ==========================================
+// USUÁRIOS & SESSÕES DE ATENDIMENTO
+// ==========================================
+
 model User {
-  id         String  @id @default(cuid())
-  telegramId String? @unique
+  id         String   @id @default(cuid())
+  telegramId String?  @unique
+  phone      String?  @unique
   email      String?
   name       String
 
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  role       UserRole @default(USER)
+
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
 
   orders        Order[]
   memories      UserMemory[]
   carts         Cart[]
   conversations Conversation[]
 
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([tenantId])
-}
-
-enum OrderStatus {
-  PENDING
-  PAID
-  CANCELLED
-  SHIPPED
-}
-
-model Product {
-  id          String  @id @default(cuid())
-  name        String
-  description String?
-  price       Float
-  stock       Int     @default(0)
-  imageUrl    String?
-  active      Boolean @default(true)
-
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
-
-  images     ProductImage[]
-  orderItems OrderItem[]
-  cartItems  CartItem[]
-
-  createdAt DateTime @default(now())
-
-  @@index([tenantId, active])
-}
-
-model Order {
-  id String @id @default(cuid())
-
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
-  status OrderStatus @default(PENDING)
-  total  Float
-
-  items OrderItem[]
-
-  createdAt DateTime @default(now())
-
-  @@index([tenantId, userId])
-}
-
-model OrderItem {
-  id String @id @default(cuid())
-
-  orderId String
-  order   Order  @relation(fields: [orderId], references: [id])
-
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
-
-  quantity Int
-  price    Float
-
-  @@index([orderId])
-}
-
-model ProductImage {
-  id  String @id @default(cuid())
-  url String
-
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
-}
-
-model WhatsAppSession {
-  id        String @id @default(cuid())
-  phone     String
-  sessionId String
-
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
-
-  createdAt DateTime @default(now())
+  @@index([phone])
+  @@index([tenantId, role])
 }
 
 model UserMemory {
-  id String @id @default(cuid())
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
-  key   String
-  value String
+  key       String
+  value     String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -145,79 +103,181 @@ model UserMemory {
 }
 
 model Conversation {
-  id String @id @default(cuid())
+  id        String    @id @default(cuid())
+  userId    String
+  tenantId  String
 
-  userId   String
-  tenantId String
+  user      User      @relation(fields: [userId], references: [id])
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
 
-  user   User   @relation(fields: [userId], references: [id])
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  messages  Message[]
 
-  messages Message[]
-
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId, tenantId])
 }
 
 model Message {
-  id String @id @default(cuid())
-
+  id             String       @id @default(cuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id])
 
-  role    String // user | assistant | system
-  content String
+  role           String       // user | assistant | system
+  content        String
 
-  createdAt DateTime @default(now())
+  createdAt      DateTime     @default(now())
 
   @@index([conversationId])
 }
 
-model Cart {
-  id String @id @default(cuid())
+model WhatsAppSession {
+  id        String   @id @default(cuid())
+  phone     String
+  sessionId String
 
-  userId   String
-  tenantId String
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 
-  user   User   @relation(fields: [userId], references: [id])
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-
-  status String @default("active")
-
-  items CartItem[]
-
-  updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+}
+
+// ==========================================
+// CATÁLOGO DE PRODUTOS
+// ==========================================
+
+model Product {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  stock       Int            @default(0)
+  imageUrl    String?
+  active      Boolean        @default(true)
+
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+
+  images      ProductImage[]
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+
+  createdAt   DateTime       @default(now())
+
+  @@index([tenantId, active])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  url       String
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+// ==========================================
+// CARRINHO DE COMPRAS
+// ==========================================
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String
+  tenantId  String
+
+  user      User       @relation(fields: [userId], references: [id])
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+
+  status    String     @default("active")
+
+  items     CartItem[]
+
+  updatedAt DateTime   @updatedAt
+  createdAt DateTime   @default(now())
 
   @@index([userId, status])
 }
 
 model CartItem {
-  id String @id @default(cuid())
-
-  cartId String
-  cart   Cart   @relation(fields: [cartId], references: [id])
+  id        String  @id @default(cuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id])
 
   productId String
   product   Product @relation(fields: [productId], references: [id])
 
-  quantity Int
+  quantity  Int
 
   @@index([cartId])
 }
 
+// ==========================================
+// PEDIDOS & LOGÍSTICA
+// ==========================================
+
+model Order {
+  id            String        @id @default(cuid())
+
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentMethod String?
+
+  total         Float
+
+  trackingCode  String?
+  carrier       String?
+
+  paidAt        DateTime?
+  shippedAt     DateTime?
+  deliveredAt   DateTime?
+  cancelledAt   DateTime?
+
+  items         OrderItem[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([tenantId, userId])
+  @@index([tenantId, status])
+  @@index([tenantId, paymentStatus])
+  @@index([trackingCode])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id])
+
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+
+  productName String?
+  quantity    Int
+  price       Float
+
+  @@index([orderId])
+}
+
+// ==========================================
+// MOTOR DE IA & TOOLS
+// ==========================================
+
 model Tool {
-  id String @id @default(cuid())
+  id        String   @id @default(cuid())
 
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 
-  name   String
-  type   String // api | internal | webhook
-  config Json
+  name      String
+  type      String   // api | internal | webhook
+  config    Json
 
-  active Boolean @default(true)
+  active    Boolean  @default(true)
 
   createdAt DateTime @default(now())
 
@@ -225,16 +285,16 @@ model Tool {
 }
 
 model AIRequest {
-  id String @id @default(cuid())
+  id        String   @id @default(cuid())
 
-  tenantId String
-  userId   String?
+  tenantId  String
+  userId    String?
 
-  prompt   String
-  response String?
+  prompt    String
+  response  String?
 
-  tokens Int?
-  agent  String
+  tokens    Int?
+  agent     String
 
   createdAt DateTime @default(now())
 

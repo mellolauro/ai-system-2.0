@@ -1,58 +1,105 @@
+<% const isEdit = typeof user !== 'undefined' && user !== null; %>
+
 <div class="max-w-2xl mx-auto">
-    <div class="mb-6">
-        <a href="/users" class="text-blue-600 text-sm hover:underline"><i class="fas fa-arrow-left"></i> Voltar</a>
-        <h1 class="text-2xl font-bold text-slate-800 mt-2">
-            <%= typeof user !== 'undefined' ? "Editar Usuário" : "Cadastrar Novo Usuário" %>
-        </h1>
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <a href="/users" class="text-blue-600 text-sm hover:underline flex items-center gap-1">
+        <i class="fas fa-arrow-left text-xs"></i> Voltar para usuários
+      </a>
+      <h1 class="text-2xl font-bold text-slate-800 mt-2">
+        <%= isEdit ? 'Editar Usuário' : 'Cadastrar Novo Usuário' %>
+      </h1>
+    </div>
+  </div>
+
+  <form 
+    action="<%= isEdit ? '/users/update/' + user.id : '/users/create' %>" 
+    method="POST" 
+    class="bg-white p-8 rounded-xl shadow-sm border border-slate-200 space-y-5"
+  >
+    <!-- Nome -->
+    <div>
+      <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Nome Completo</label>
+      <input 
+        name="name" 
+        type="text" 
+        value="<%= isEdit ? user.name : '' %>" 
+        placeholder="Ex: João da Silva" 
+        class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-800" 
+        required
+      >
     </div>
 
-    <form action="<%= typeof user !== 'undefined' ? '/users/update/' + user.id : '/users/create' %>" method="POST" class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
-        <div class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Nome Completo</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                            <i class="fas fa-user"></i>
-                        </span>
-                        <input name="name" type="text" placeholder="Ex: Lauro Mello" 
-                            value="<%= typeof user !== 'undefined' ? user.name : '' %>"
-                            class="w-full pl-10 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">E-mail</label>
-                    <input name="email" type="email" placeholder="lauro@email.com" 
-                        value="<%= typeof user !== 'undefined' ? user.email : '' %>"
-                        class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-            </div>
+    <!-- E-mail e Telefone (WhatsApp) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-2">E-mail</label>
+        <input 
+          name="email" 
+          type="email" 
+          value="<%= isEdit ? (user.email || '') : '' %>" 
+          placeholder="cliente@exemplo.com" 
+          class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-800"
+        >
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-2">WhatsApp / Telefone</label>
+        <input 
+          name="phone" 
+          type="text" 
+          value="<%= isEdit ? (user.phone || '') : '' %>" 
+          placeholder="Ex: 5521999998888" 
+          class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-800"
+        >
+      </div>
+    </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2 text-sky-600">
-                    <i class="fab fa-telegram"></i> ID do Telegram
-                </label>
-                <input name="telegramId" type="text" placeholder="123456789" 
-                    value="<%= typeof user !== 'undefined' ? user.telegramId : '' %>"
-                    class="w-full p-3 border rounded-lg border-sky-100 focus:ring-2 focus:ring-sky-500 outline-none bg-sky-50/30" required>
-                <p class="text-[10px] text-slate-400 mt-1 italic">* Necessário para notificações automáticas via bot.</p>
-            </div>
+    <!-- Telegram ID e Função (Role) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Telegram ID</label>
+        <input 
+          name="telegramId" 
+          type="text" 
+          value="<%= isEdit ? (user.telegramId || '') : '' %>" 
+          placeholder="Ex: 1218571836" 
+          class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-800"
+        >
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Função / Permissão</label>
+        <select 
+          name="role" 
+          class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-800 font-semibold"
+        >
+          <option value="USER" <%= (isEdit && user.role === 'USER') ? 'selected' : '' %>>USER (Cliente Comum)</option>
+          <option value="ADMIN" <%= (isEdit && user.role === 'ADMIN') ? 'selected' : '' %>>ADMIN (Acesso a Tools Administrativas)</option>
+        </select>
+      </div>
+    </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">Vincular à Empresa (Tenant)</label>
-                <select name="tenantId" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm" required>
-                    <option value="" disabled <%= typeof user === 'undefined' ? 'selected' : '' %>>Selecione uma empresa...</option>
-                    <% tenants.forEach(t => { %>
-                        <option value="<%= t.id %>" <%= (typeof user !== 'undefined' && user.tenantId === t.id) ? 'selected' : '' %>>
-                            <%= t.name %>
-                        </option>
-                    <% }) %>
-                </select>
-            </div>
+    <!-- Tenant -->
+    <div>
+      <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Tenant (Empresa)</label>
+      <select 
+        name="tenantId" 
+        class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-800"
+      >
+        <% tenants.forEach(t => { %>
+          <option value="<%= t.id %>" <%= (isEdit && user.tenantId === t.id) ? 'selected' : '' %>>
+            <%= t.name %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
 
-            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all shadow-md flex items-center justify-center gap-2">
-                <i class="fas fa-save"></i> <%= typeof user !== 'undefined' ? "Atualizar Usuário" : "Salvar Usuário" %>
-            </button>
-        </div>
-    </form>
+    <!-- Botão de Salvar -->
+    <button 
+      type="submit" 
+      class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-md flex items-center justify-center gap-2 text-sm mt-4"
+    >
+      <i class="fas fa-save"></i>
+      <%= isEdit ? 'Salvar Alterações' : 'Cadastrar Usuário' %>
+    </button>
+  </form>
 </div>

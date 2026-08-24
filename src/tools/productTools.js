@@ -3,6 +3,12 @@ const prisma = require("../prisma");
 async function searchProducts({ tenantId, query, maxPrice }) {
 
   if (!query) return [];
+   
+  console.log("BUSCANDO PRODUTOS", {
+       tenantId,
+       query,
+       maxPrice
+   });
 
   return prisma.product.findMany({
     where: {

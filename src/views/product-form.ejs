@@ -1,49 +1,128 @@
+<% const isEdit = typeof product !== 'undefined' && product !== null; %>
+
 <div class="max-w-2xl mx-auto">
-    <div class="mb-6">
-        <a href="/products" class="text-blue-600 text-sm hover:underline"><i class="fas fa-arrow-left"></i> Voltar</a>
-        <h1 class="text-2xl font-bold text-slate-800 mt-2">Cadastrar Novo Produto</h1>
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <a href="/products" class="text-blue-600 text-sm hover:underline flex items-center gap-1">
+        <i class="fas fa-arrow-left text-xs"></i> Voltar para produtos
+      </a>
+      <h1 class="text-2xl font-bold text-slate-800 mt-2">
+        <%= isEdit ? 'Editar Produto' : 'Cadastrar Novo Produto' %>
+      </h1>
     </div>
+    <% if (isEdit) { %>
+      <span class="text-xs font-mono bg-slate-100 text-slate-600 px-3 py-1 rounded-full border">
+        ID: #<%= product.id.slice(-6).toUpperCase() %>
+      </span>
+    <% } %>
+  </div>
 
-    <form action="/products/create" method="POST" enctype="multipart/form-data" class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
-        <div class="space-y-6">
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">Nome do Produto</label>
-                <input name="name" type="text" placeholder="Ex: Câmera Inteligente Wi-Fi" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-            </div>
+  <form 
+    action="<%= isEdit ? '/products/update/' + product.id : '/products/create' %>" 
+    method="POST" 
+    enctype="multipart/form-data" 
+    class="bg-white p-8 rounded-xl shadow-sm border border-slate-200"
+  >
+    <div class="space-y-5">
+      
+      <!-- Nome -->
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Nome do Produto</label>
+        <input 
+          name="name" 
+          type="text" 
+          value="<%= isEdit ? product.name : '' %>" 
+          placeholder="Ex: Câmera Inteligente Wi-Fi" 
+          class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-800 text-sm" 
+          required
+        >
+      </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">Descrição</label>
-                <textarea name="description" rows="3" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Detalhes técnicos..."></textarea>
-            </div>
+      <!-- Descrição -->
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Descrição / Detalhes</label>
+        <textarea 
+          name="description" 
+          rows="3" 
+          class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-800 text-sm" 
+          placeholder="Detalhes técnicos para os agentes de IA consultarem..."
+        ><%= isEdit ? (product.description || '') : '' %></textarea>
+      </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Preço (R$)</label>
-                    <input name="price" type="number" step="0.01" placeholder="0,00" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Estoque Inicial</label>
-                    <input name="stock" type="number" placeholder="0" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">Tenant (Proprietário)</label>
-                <select name="tenantId" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                    <% tenants.forEach(t => { %>
-                        <option value="<%= t.id %>"><%= t.name %></option>
-                    <% }) %>
-                </select>
-            </div>
-
-            <div class="p-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg text-center">
-                <label class="block text-sm font-semibold text-slate-700 mb-2">Imagem do Produto</label>
-                <input type="file" name="image" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-            </div>
-
-            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all shadow-md">
-                Salvar Produto
-            </button>
+      <!-- Preço e Estoque -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Preço (R$)</label>
+          <input 
+            name="price" 
+            type="number" 
+            step="0.01" 
+            value="<%= isEdit ? product.price : '' %>" 
+            placeholder="0,00" 
+            class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-800 text-sm font-semibold" 
+            required
+          >
         </div>
-    </form>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Estoque em Unidades</label>
+          <input 
+            name="stock" 
+            type="number" 
+            value="<%= isEdit ? product.stock : 0 %>" 
+            placeholder="0" 
+            class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-800 text-sm font-semibold" 
+            required
+          >
+        </div>
+      </div>
+
+      <!-- Tenant -->
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Tenant (Proprietário)</label>
+        <select 
+          name="tenantId" 
+          class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-800 text-sm"
+        >
+          <% tenants.forEach(t => { %>
+            <option value="<%= t.id %>" <%= (isEdit && product.tenantId === t.id) ? 'selected' : '' %>>
+              <%= t.name %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Imagem -->
+      <div class="p-4 bg-slate-50 border border-dashed border-slate-300 rounded-lg">
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-2">
+          <%= isEdit ? 'Substituir Imagem (Opcional)' : 'Imagem do Produto' %>
+        </label>
+
+        <% if (isEdit) { %>
+          <% const currentImg = (product.images && product.images.length > 0) ? product.images[0].url : product.imageUrl; %>
+          <% if (currentImg) { %>
+            <div class="mb-3 flex items-center gap-3">
+              <img src="<%= currentImg %>" alt="Preview" class="w-12 h-12 object-contain bg-white rounded border p-1" onerror="this.style.display='none'">
+              <span class="text-xs text-slate-500">Imagem atual vinculada</span>
+            </div>
+          <% } %>
+        <% } %>
+
+        <input 
+          type="file" 
+          name="image" 
+          class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+        >
+      </div>
+
+      <!-- Botão Salvar -->
+      <button 
+        type="submit" 
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-sm"
+      >
+        <i class="fas fa-save"></i>
+        <%= isEdit ? 'Salvar Alterações do Produto' : 'Cadastrar Produto' %>
+      </button>
+      
+    </div>
+  </form>
 </div>

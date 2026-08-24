@@ -1,0 +1,118 @@
+<div class="max-w-4xl mx-auto space-y-6">
+  <!-- Topo com Navegação e Ações -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div>
+      <a href="/orders" class="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1.5 mb-2">
+        <i class="fas fa-arrow-left text-xs"></i> Voltar aos Pedidos
+      </a>
+      <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
+        Pedido #<%= order.id.slice(-8).toUpperCase() %>
+      </h1>
+      <p class="text-xs text-slate-400 mt-0.5">Criado em <%= new Date(order.createdAt).toLocaleString('pt-BR') %></p>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <a href="/orders/print/<%= order.id %>" target="_blank" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-sm transition flex items-center gap-2 border border-slate-300">
+        <i class="fas fa-print"></i> Imprimir Recibo
+      </a>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    
+    <!-- Coluna Esquerda: Itens do Pedido (2 Colunas) -->
+    <div class="md:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+      <h2 class="text-base font-bold text-slate-800 border-b border-slate-100 pb-3">Itens do Pedido</h2>
+      
+      <div class="divide-y divide-slate-100">
+        <% if (order.items && order.items.length > 0) { %>
+          <% order.items.forEach(item => { %>
+            <div class="py-3 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs border">
+                  <%= item.quantity %>x
+                </div>
+                <div>
+                  <h3 class="font-semibold text-sm text-slate-800">
+                    <%= item.productName || (item.product ? item.product.name : 'Produto') %>
+                  </h3>
+                  <p class="text-xs text-slate-400">R$ <%= item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %> un.</p>
+                </div>
+              </div>
+              <span class="font-bold text-sm text-slate-800">
+                R$ <%= (item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %>
+              </span>
+            </div>
+          <% }) %>
+        <% } else { %>
+          <p class="text-sm text-slate-400 py-4 italic">Nenhum item registrado.</p>
+        <% } %>
+      </div>
+
+      <!-- Resumo Financeiro -->
+      <div class="pt-4 border-t border-slate-100 space-y-2">
+        <div class="flex justify-between text-sm text-slate-600">
+          <span>Subtotal</span>
+          <span>R$ <%= Number(order.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></span>
+        </div>
+        <div class="flex justify-between text-sm text-slate-600">
+          <span>Frete</span>
+          <span class="text-emerald-600 font-semibold">Grátis</span>
+        </div>
+        <div class="flex justify-between text-base font-bold text-slate-800 pt-2 border-t border-slate-200">
+          <span>Total do Pedido</span>
+          <span class="text-indigo-600">R$ <%= Number(order.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coluna Direita: Status, Logística e Cliente (1 Coluna) -->
+    <div class="space-y-6">
+      
+      <!-- Informações do Cliente -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
+        <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Dados do Cliente</h3>
+        <div>
+          <p class="font-bold text-slate-800 text-sm"><%= order.user ? order.user.name : 'N/A' %></p>
+          <p class="text-xs text-slate-500 mt-0.5"><%= order.user && order.user.email ? order.user.email : 'Sem e-mail' %></p>
+          <% if (order.user && order.user.phone) { %>
+            <p class="text-xs text-slate-500 mt-0.5"><i class="fab fa-whatsapp text-emerald-600 mr-1"></i> <%= order.user.phone %></p>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Status & Rastreio -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+        <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Logística & Envio</h3>
+        
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Status do Pedido</label>
+          <span class="px-2.5 py-1 rounded text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 inline-block">
+            <%= order.status %>
+          </span>
+        </div>
+
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Status do Pagamento</label>
+          <span class="px-2.5 py-1 rounded text-xs font-bold <%= order.paymentStatus === 'PAID' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' %> inline-block">
+            <%= order.paymentStatus %>
+          </span>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100">
+          <label class="text-xs text-slate-400 block mb-1">Código de Rastreio</label>
+          <% if (order.trackingCode) { %>
+            <span class="font-mono font-bold text-slate-800 text-sm bg-slate-100 px-2 py-1 rounded border inline-block">
+              <%= order.trackingCode %>
+            </span>
+            <p class="text-xs text-slate-400 mt-1">Transportadora: <%= order.carrier || 'Correios' %></p>
+          <% } else { %>
+            <p class="text-xs text-slate-400 italic">Envio pendente de despacho</p>
+          <% } %>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
