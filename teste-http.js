@@ -1,118 +1,60 @@
 const axios = require("axios");
 
-async function sendMessage(
-    externalUserId,
-    message
-) {
-
-    const response =
-        await axios.post(
-
-            "http://127.0.0.1:3000/api/chat",
-
-            {
-
-                tenantId:
-                    process.env.TEST_TENANT_ID,
-
-                userId:
-                    process.env.TEST_USER_ID,
-
-                channel:
-                    "api",
-
-                externalUserId,
-
-                message
-
-            }
-
-        );
-
-    return response.data;
-
-}
-
 async function test() {
 
     console.log(
-        "🔗 Testando conversa multi-mensagem..."
+        "🔗 Testando conversa administrativa..."
     );
-
-    const externalUserId =
-        `conversation-test-${Date.now()}`;
 
     try {
 
-        console.log("\n========== MENSAGEM 1 ==========\n");
+        const response =
+            await axios.post(
+                "http://127.0.0.1:3000/api/chat",
+                {
+                    tenantId:
+                        "cmobzu3ux000085nscn2q22kt",
 
-        const first =
-            await sendMessage(
+                    userId:
+                        "cmoc0n5gl000y85nsh8308yg4",
 
-                externalUserId,
+                    channel:
+                        "api",
 
-                "Qual é o status do meu pedido?"
+                    externalUserId:
+                        `admin-test-${Date.now()}`,
 
+                    agentContext:
+                        "admin",
+
+                    message:
+                        "Cancele o pedido cmt3gg9ba000185wxx25ffkzc"
+                }
             );
+
+        console.log("");
+
+        console.log(
+            "HTTP Status:",
+            response.status
+        );
+
+        console.log("");
 
         console.log(
             JSON.stringify(
-                first,
+                response.data,
                 null,
                 2
             )
-        );
-
-        console.log("\n========== MENSAGEM 2 ==========\n");
-
-        const second =
-            await sendMessage(
-
-                externalUserId,
-
-                "Qual é o status do meu último pedido?"
-
-            );
-
-        console.log(
-            JSON.stringify(
-                second,
-                null,
-                2
-            )
-        );
-
-        console.log(
-            "\n✅ Conversa concluída."
-        );
-
-        console.log(
-            "\nConversation 1:",
-            first.data.conversation.id
-        );
-
-        console.log(
-            "Conversation 2:",
-            second.data.conversation.id
-        );
-
-        console.log(
-            "\nSession 1:",
-            first.data.session.key
-        );
-
-        console.log(
-            "Session 2:",
-            second.data.session.key
         );
 
     } catch (error) {
 
-        console.error(
-            "\n❌ ERRO:"
-        );
+        console.error("");
 
         console.error(
+            "❌ Erro:",
             error.response?.data ||
             error.message
         );

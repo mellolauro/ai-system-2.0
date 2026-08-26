@@ -1,10 +1,13 @@
-const Orchestrator = require("../core/Orchestrator");
+const Orchestrator =
+    require("../core/Orchestrator");
 
 class MessageController {
 
     async process(request) {
 
-        return Orchestrator.execute(request);
+        return Orchestrator.execute(
+            request
+        );
 
     }
 
@@ -12,19 +15,30 @@ class MessageController {
 
         try {
 
-            const result = await this.process({
+            const result =
+                await this.process({
 
-                tenantId: req.body.tenantId,
+                    tenantId:
+                        req.body.tenantId,
 
-                userId: req.body.userId,
+                    userId:
+                        req.body.userId,
 
-                channel: req.body.channel || "api",
+                    channel:
+                        req.body.channel ||
+                        "api",
 
-                externalUserId: req.body.externalUserId,
+                    externalUserId:
+                        req.body.externalUserId,
 
-                message: req.body.message
+                    agentContext:
+                        req.body.agentContext ||
+                        "client",
 
-            });
+                    message:
+                        req.body.message
+
+                });
 
             return res.json({
 
@@ -42,7 +56,8 @@ class MessageController {
 
                 success: false,
 
-                error: err.message
+                error:
+                    err.message
 
             });
 
@@ -52,4 +67,5 @@ class MessageController {
 
 }
 
-module.exports = new MessageController();
+module.exports =
+    new MessageController();

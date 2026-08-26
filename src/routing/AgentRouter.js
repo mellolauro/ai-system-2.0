@@ -4,8 +4,40 @@ class AgentRouter {
 
     async resolve({
         message,
-        session
+        session,
+        user,
+        agentContext = "client"
     }) {
+
+        /*
+         * Contexto administrativo explícito.
+         *
+         * O usuário precisa ser ADMIN e a requisição
+         * precisa solicitar o contexto "admin".
+         */
+        if (
+            agentContext === "admin"
+        ) {
+
+            if (
+                user?.role !== "ADMIN"
+            ) {
+
+                throw new Error(
+                    "Usuário não possui permissão administrativa."
+                );
+
+            }
+
+            return this.getAgent(
+                "admin"
+            );
+
+        }
+
+        /*
+         * Contexto normal do cliente.
+         */
 
         if (
             !message ||
@@ -102,7 +134,7 @@ class AgentRouter {
 
         /*
          * 2. Sem nova intenção explícita:
-         * mantém o agente atual da sessão.
+         * mantém o agente da sessão.
          */
         return this.resolveSessionAgent(
             session
@@ -110,7 +142,9 @@ class AgentRouter {
 
     }
 
-    resolveSessionAgent(session) {
+    resolveSessionAgent(
+        session
+    ) {
 
         if (
             session &&
@@ -149,7 +183,10 @@ class AgentRouter {
 
     }
 
-    matches(text, keywords) {
+    matches(
+        text,
+        keywords
+    ) {
 
         return keywords.some(
             keyword =>

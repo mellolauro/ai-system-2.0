@@ -12,6 +12,9 @@ const ProviderManager =
 const aiConfig =
     require("../config/ai");
 
+const UserService =
+    require("../services/UserService");
+
 class ChatPipeline {
 
     async execute(request) {
@@ -24,6 +27,17 @@ class ChatPipeline {
             await SessionManager.resolve(
                 request
             );
+
+        const user =
+            await UserService.getById({
+
+                tenantId:
+                    request.tenantId,
+
+                userId:
+                    request.userId
+
+            });
 
         //----------------------------------------------------
         // 2) Carrega memória / Conversation
@@ -70,9 +84,12 @@ class ChatPipeline {
                 message:
                     request.message,
 
-                tenantId:
-                    request.tenantId
+                user,
 
+               agentContext:
+                   request.agentContext ||
+                   "client" 
+ 
             });
 
         //----------------------------------------------------
