@@ -7,6 +7,10 @@ const expressLayouts = require("express-ejs-layouts");
 const prisma = require("./prisma");
 const bootstrap = require("./bootstrap");
 
+const {
+    initTelegram
+} = require("./channels/telegram");
+
 const app = express();
 
 // ====================================================
@@ -20,101 +24,206 @@ app.use(express.urlencoded({ extended: true }));
 // VIEW ENGINE
 // ====================================================
 
-app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
+app.set(
+    "view engine",
+    "ejs"
+);
 
-app.use(expressLayouts);
-app.set("layout", "layout");
+app.set(
+    "views",
+    path.join(__dirname, "views")
+);
+
+app.use(
+    expressLayouts
+);
+
+app.set(
+    "layout",
+    "layout"
+);
 
 // ====================================================
 // STATIC
 // ====================================================
 
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(
+    express.static(
+        path.join(
+            __dirname,
+            "../public"
+        )
+    )
+);
 
 app.use(
     "/uploads",
-    express.static(path.join(__dirname, "../public/uploads"))
+    express.static(
+        path.join(
+            __dirname,
+            "../public/uploads"
+        )
+    )
 );
 
 // ====================================================
 // ROUTES
 // ====================================================
 
-app.use("/dashboard", require("./routes/dashboard"));
-app.use("/products", require("./routes/products"));
-app.use("/tenants", require("./routes/tenants"));
-app.use("/users", require("./routes/users"));
-app.use("/orders", require("./routes/orders"));
-app.use("/api/chat", require("./routes/chat"));
+app.use(
+    "/dashboard",
+    require("./routes/dashboard")
+);
+
+app.use(
+    "/products",
+    require("./routes/products")
+);
+
+app.use(
+    "/tenants",
+    require("./routes/tenants")
+);
+
+app.use(
+    "/users",
+    require("./routes/users")
+);
+
+app.use(
+    "/orders",
+    require("./routes/orders")
+);
+
+app.use(
+    "/api/chat",
+    require("./routes/chat")
+);
+
+// Rota de Webhooks para atualizações autônomas de rastreio/status
+app.use(
+    "/webhooks",
+    require("./routes/webhooks")
+);
 
 // ====================================================
 // ROOT
 // ====================================================
 
-app.get("/", async (req, res, next) => {
-    try {
-        const products = await prisma.product.findMany({
-            where: { active: true },
-            include: { images: true },
-            take: 6,
-            orderBy: { createdAt: "desc" }
-        });
+app.get(
+    "/",
+    async (
+        req,
+        res,
+        next
+    ) => {
 
-        res.render("landing", { 
-            layout: false,
-            products 
-        });
-    } catch (err) {
-        next(err);
+        try {
+
+            const products =
+                await prisma.product.findMany({
+
+                    where: {
+                        active: true
+                    },
+
+                    include: {
+                        images: true
+                    },
+
+                    take: 6,
+
+                    orderBy: {
+                        createdAt: "desc"
+                    }
+
+                });
+
+            res.render(
+                "landing",
+                {
+                    layout: false,
+                    products
+                }
+            );
+
+        } catch (err) {
+
+            next(err);
+
+        }
+
     }
-});
+);
 
 // ====================================================
 // HEALTH
 // ====================================================
 
-app.get("/health", (req, res) => {
+app.get(
+    "/health",
+    (req, res) => {
 
-    res.json({
+        res.json({
 
-        status: "ok",
+            status: "ok",
 
-        service: "AI-System 2.0",
+            service:
+                "AI-System 2.0",
 
-        version: "1.0.0",
+            version:
+                "1.0.0",
 
-        uptime: process.uptime(),
+            uptime:
+                process.uptime(),
 
-        timestamp: new Date()
+            timestamp:
+                new Date()
 
-    });
+        });
 
-});
+    }
+);
 
 // ====================================================
 // GLOBAL ERROR
 // ====================================================
 
-app.use((err, req, res, next) => {
+app.use(
+    (
+        err,
+        req,
+        res,
+        next
+    ) => {
 
-    console.error(err);
+        console.error(err);
 
-    res.status(500).json({
+        if (res.headersSent) {
 
-        success: false,
+            return next(err);
 
-        message: err.message
+        }
 
-    });
+        res.status(500).json({
 
-});
+            success: false,
+
+            message:
+                err.message
+
+        });
+
+    }
+);
 
 // ====================================================
 // START
 // ====================================================
 
-const PORT = process.env.PORT || 3000;
+const PORT =
+    process.env.PORT ||
+    3000;
 
 async function start() {
 
@@ -122,33 +231,100 @@ async function start() {
 
         console.log("");
 
-        console.log("======================================");
+        console.log(
+            "======================================"
+        );
 
-        console.log(" AI-System 2.0");
+        console.log(
+            " AI-System 2.0"
+        );
 
-        console.log("======================================");
+        console.log(
+            "======================================"
+        );
+
+        /*
+         * ============================================
+         * 1. DATABASE
+         * ============================================
+         */
 
         await prisma.$connect();
 
-        console.log("✓ Banco conectado");
+        console.log(
+            "✓ Banco conectado"
+        );
+
+        /*
+         * ============================================
+         * 2. FRAMEWORK / BOOTSTRAP
+         * ============================================
+         */
 
         await bootstrap();
 
-        console.log("✓ Framework carregado");
+        console.log(
+            "✓ Framework carregado"
+        );
 
-        app.listen(PORT, "0.0.0.0", () => {
-             console.log("");
-             console.log(`🚀 HTTP Server iniciado na porta ${PORT}`);
-             console.log(`🚀 Acesso Local: http://localhost:${PORT}`);
-             console.log(`🚀 Acesso via Rede: http://192.168.1.17:${PORT}`);
-             console.log("");
-        });
+        /*
+         * ============================================
+         * 3. TELEGRAM
+         * ============================================
+         */
 
-    }
+        initTelegram();
 
-    catch (err) {
+        /*
+         * ============================================
+         * 4. HTTP SERVER
+         * ============================================
+         */
+
+        app.listen(
+            PORT,
+            "0.0.0.0",
+            () => {
+
+                console.log("");
+
+                console.log(
+                    `🚀 HTTP Server iniciado na porta ${PORT}`
+                );
+
+                console.log(
+                    `🚀 Acesso Local: http://localhost:${PORT}`
+                );
+
+                console.log(
+                    `🚀 Acesso via Rede: http://192.168.1.17:${PORT}`
+                );
+
+                console.log("");
+
+            }
+        );
+
+    } catch (err) {
+
+        console.error(
+            "❌ Falha ao iniciar AI-System:"
+        );
 
         console.error(err);
+
+        try {
+
+            await prisma.$disconnect();
+
+        } catch (disconnectError) {
+
+            console.error(
+                "Erro ao desconectar do banco:",
+                disconnectError
+            );
+
+        }
 
         process.exit(1);
 
@@ -156,19 +332,59 @@ async function start() {
 
 }
 
-start();
+// ====================================================
+// SHUTDOWN
+// ====================================================
 
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+process.on(
+    "SIGINT",
+    shutdown
+);
+
+process.on(
+    "SIGTERM",
+    shutdown
+);
+
+let shuttingDown = false;
 
 async function shutdown() {
 
+    if (shuttingDown) {
+
+        return;
+
+    }
+
+    shuttingDown = true;
+
     console.log("");
 
-    console.log("Encerrando aplicação...");
+    console.log(
+        "Encerrando aplicação..."
+    );
 
-    await prisma.$disconnect();
+    try {
 
-    process.exit(0);
+        await prisma.$disconnect();
+
+        console.log(
+            "✓ Banco desconectado"
+        );
+
+    } catch (err) {
+
+        console.error(
+            "Erro ao desconectar banco:",
+            err
+        );
+
+    } finally {
+
+        process.exit(0);
+
+    }
 
 }
+
+start();

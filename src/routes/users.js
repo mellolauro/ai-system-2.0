@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../prisma");
 
-
 // ==========================
 // LISTAR USUÁRIOS
 // ==========================
@@ -25,26 +24,28 @@ router.get("/", async (req, res, next) => {
 });
 
 // ==========================
-// NOVO USUÁRIO
+// FORMULÁRIO: NOVO USUÁRIO
 // ==========================
-router.get("/new", async (req, res) => {
+router.get("/new", async (req, res, next) => {
+  try {
+    const tenants = await prisma.tenant.findMany();
 
-  const tenants = await prisma.tenant.findMany();
-
-  res.render("user-form", {
-    tenants
-  });
-
+    res.render("user-form", {
+      user: null,
+      tenants
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
-
 // ==========================
-// CRIAR USUÁRIO
+// CRIAR USUÁRIO (POST)
 // ==========================
-// CREATE
 router.post("/create", async (req, res, next) => {
   try {
-    const { name, email, phone, telegramId, role, tenantId } = req.body;
+    const { name, email, phone, telegramId, role, tenantId, avatarUrl } = req.body;
+
     await prisma.user.create({
       data: {
         name,
@@ -52,19 +53,44 @@ router.post("/create", async (req, res, next) => {
         phone: phone || null,
         telegramId: telegramId || null,
         role: role || "USER",
-        tenantId
+        tenantId: tenantId || null,
+        avatarUrl: avatarUrl || null
       }
     });
+
     res.redirect("/users");
   } catch (err) {
     next(err);
   }
 });
 
-// UPDATE
+// ==========================
+// FORMULÁRIO: EDITAR USUÁRIO
+// ==========================
+router.get("/edit/:id", async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id }
+    });
+
+    const tenants = await prisma.tenant.findMany();
+
+    res.render("user-form", {
+      user,
+      tenants
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ==========================
+// ATUALIZAR USUÁRIO (POST)
+// ==========================
 router.post("/update/:id", async (req, res, next) => {
   try {
-    const { name, email, phone, telegramId, role, tenantId } = req.body;
+    const { name, email, phone, telegramId, role, tenantId, avatarUrl } = req.body;
+
     await prisma.user.update({
       where: { id: req.params.id },
       data: {
@@ -73,9 +99,11 @@ router.post("/update/:id", async (req, res, next) => {
         phone: phone || null,
         telegramId: telegramId || null,
         role: role || "USER",
-        tenantId
+        tenantId: tenantId || null,
+        avatarUrl: avatarUrl || null
       }
     });
+
     res.redirect("/users");
   } catch (err) {
     next(err);
@@ -83,58 +111,18 @@ router.post("/update/:id", async (req, res, next) => {
 });
 
 // ==========================
-// EDITAR
+// DELETAR USUÁRIO
 // ==========================
-router.get("/edit/:id", async (req, res) => {
+router.get("/delete/:id", async (req, res, next) => {
+  try {
+    await prisma.user.delete({
+      where: { id: req.params.id }
+    });
 
-  const user = await prisma.user.findUnique({
-    where: { id: req.params.id }
-  });
-
-  const tenants = await prisma.tenant.findMany();
-
-  res.render("user-form", {
-    user,
-    tenants
-  });
-
+    res.redirect("/users");
+  } catch (err) {
+    next(err);
+  }
 });
-
-
-// ==========================
-// UPDATE
-// ==========================
-router.post("/update/:id", async (req, res) => {
-
-  const { name, email, telegramId, tenantId } = req.body;
-
-  await prisma.user.update({
-    where: { id: req.params.id },
-    data: {
-      name,
-      email,
-      telegramId,
-      tenantId
-    }
-  });
-
-  res.redirect("/users");
-
-});
-
-
-// ==========================
-// DELETE
-// ==========================
-router.get("/delete/:id", async (req, res) => {
-
-  await prisma.user.delete({
-    where: { id: req.params.id }
-  });
-
-  res.redirect("/users");
-
-});
-
 
 module.exports = router;

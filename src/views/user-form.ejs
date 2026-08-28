@@ -17,6 +17,18 @@
     method="POST" 
     class="bg-white p-8 rounded-xl shadow-sm border border-slate-200 space-y-5"
   >
+    <!-- Foto -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-slate-700 mb-1">URL da Foto de Perfil</label>
+      <input
+        type="url"
+        name="avatarUrl"
+        value="<%= isEdit && user.avatarUrl ? user.avatarUrl : '' %>"
+        placeholder="https://exemplo.com/minha-foto.jpg"
+        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+      />
+    </div>    
+
     <!-- Nome -->
     <div>
       <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Nome Completo</label>

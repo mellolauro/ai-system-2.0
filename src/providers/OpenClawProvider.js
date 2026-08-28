@@ -8,7 +8,9 @@ class OpenClawProvider extends Provider {
     constructor(config = {}) {
 
         super({
-            name: config.name || "openclaw"
+            name:
+                config.name ||
+                "openclaw"
         });
 
         this.baseUrl = (
@@ -43,28 +45,29 @@ class OpenClawProvider extends Provider {
                 8
             );
 
-        this.http = axios.create({
+        this.http =
+            axios.create({
 
-            baseURL:
-                `${this.baseUrl}/v1`,
+                baseURL:
+                    `${this.baseUrl}/v1`,
 
-            timeout:
-                this.timeout,
+                timeout:
+                    this.timeout,
 
-            headers: {
+                headers: {
 
-                Authorization:
-                    `Bearer ${this.token}`,
+                    Authorization:
+                        `Bearer ${this.token}`,
 
-                "Content-Type":
-                    "application/json",
+                    "Content-Type":
+                        "application/json",
 
-                Accept:
-                    "application/json"
+                    Accept:
+                        "application/json"
 
-            }
+                }
 
-        });
+            });
 
     }
 
@@ -136,7 +139,9 @@ class OpenClawProvider extends Provider {
          */
         const model =
             request.agentTarget ||
-            this.resolveAgentTarget(agent);
+            this.resolveAgentTarget(
+                agent
+            );
 
         /*
          * Não altera o array original.
@@ -147,11 +152,26 @@ class OpenClawProvider extends Provider {
                 : [];
 
         /*
+         * Mídias encontradas durante a execução
+         * das Tools desta requisição.
+         *
+         * Exemplo:
+         *
+         * {
+         *   type: "image",
+         *   path: "/uploads/products/foto.jpg"
+         * }
+         */
+        const media = [];
+
+        /*
          * As tools já devem chegar aqui no formato
          * OpenAI-compatible produzido pelo ToolManager.
          */
         const toolDefinitions =
-            this.normalizeTools(tools);
+            this.normalizeTools(
+                tools
+            );
 
         /*
          * Contexto confiável da aplicação.
@@ -248,16 +268,15 @@ class OpenClawProvider extends Provider {
                     toolDefinitions;
 
                 /*
-                 * Temporariamente usamos required
-                 * para validar o ciclo de Tool Calling.
+                 * Mantemos auto.
                  *
-                 * Depois que o fluxo estiver validado,
-                 * podemos retornar para "auto".
+                 * O Tool Calling já foi validado
+                 * e agora permitimos que o agente
+                 * decida quando usar uma Tool.
                  */
-                payload.tool_choice = "auto";
-                   /* round === 0
-                        ? "required"
-                        : "auto";*/
+                payload.tool_choice =
+                    "auto";
+
             }
 
             console.log(
@@ -279,7 +298,9 @@ class OpenClawProvider extends Provider {
                         tools:
                             payload.tools?.map(
                                 tool =>
-                                    tool?.function?.name
+                                    tool
+                                        ?.function
+                                        ?.name
                             ) || [],
 
                         messages:
@@ -307,7 +328,9 @@ class OpenClawProvider extends Provider {
                     response.data;
 
                 const choice =
-                    data?.choices?.[0];
+                    data
+                        ?.choices
+                        ?.[0];
 
                 if (!choice) {
 
@@ -334,9 +357,18 @@ class OpenClawProvider extends Provider {
                         "[OpenClawProvider] ✅ Resposta final recebida."
                     );
 
-                    return this.extractContent(
-                        data
-                    );
+                    const text =
+                        this.extractContent(
+                            data
+                        );
+
+                    return {
+
+                        text,
+
+                        media
+
+                    };
 
                 }
 
@@ -344,7 +376,9 @@ class OpenClawProvider extends Provider {
                  * OpenClaw solicitou Tools.
                  */
                 const toolCalls =
-                    choice.message?.tool_calls ||
+                    choice
+                        ?.message
+                        ?.tool_calls ||
                     [];
 
                 console.log(
@@ -423,13 +457,12 @@ class OpenClawProvider extends Provider {
 
                     } catch (error) {
 
-                        const invalidArguments =
-                            {
+                        const invalidArguments = {
 
-                                error:
-                                    "Argumentos da Tool não são JSON válidos."
+                            error:
+                                "Argumentos da Tool não são JSON válidos."
 
-                            };
+                        };
 
                         conversationMessages.push({
 
@@ -475,6 +508,25 @@ class OpenClawProvider extends Provider {
                                 null,
                                 2
                             )
+                        );
+
+                        /*
+                         * Coleta imagens presentes
+                         * no resultado da Tool.
+                         *
+                         * Funciona tanto para:
+                         *
+                         * getProduct()
+                         *     → objeto
+                         *
+                         * quanto para:
+                         *
+                         * searchProducts()
+                         *     → array de objetos
+                         */
+                        this.collectMedia(
+                            result,
+                            media
                         );
 
                     } catch (error) {
@@ -546,7 +598,6 @@ class OpenClawProvider extends Provider {
          * Para o MVP mantemos execução
          * não-streaming.
          */
-
         return this.generate({
 
             ...request,
@@ -591,6 +642,9 @@ class OpenClawProvider extends Provider {
             support:
                 "openclaw/suporte-agent",
 
+            admin:
+                "openclaw/default",
+
             product:
                 "openclaw/default",
 
@@ -603,8 +657,11 @@ class OpenClawProvider extends Provider {
         };
 
         return (
+
             agentMap[agent] ||
+
             this.agentTarget
+
         );
 
     }
@@ -653,7 +710,9 @@ class OpenClawProvider extends Provider {
                 session
             );
 
-        return `conv:${sessionId}`;
+        return (
+            `conv:${sessionId}`
+        );
 
     }
 
@@ -666,7 +725,8 @@ class OpenClawProvider extends Provider {
         }
 
         if (
-            typeof session === "string"
+            typeof session ===
+            "string"
         ) {
 
             return session;
@@ -700,7 +760,8 @@ class OpenClawProvider extends Provider {
         }
 
         if (
-            typeof result === "string"
+            typeof result ===
+            "string"
         ) {
 
             return result;
@@ -726,11 +787,187 @@ class OpenClawProvider extends Provider {
 
     }
 
+    /*
+     * Procura recursivamente objetos de imagem
+     * dentro do resultado de uma Tool.
+     *
+     * Exemplos suportados:
+     *
+     * {
+     *   images: [...]
+     * }
+     *
+     * [
+     *   {
+     *      images: [...]
+     *   }
+     * ]
+     *
+     * {
+     *   product: {
+     *      images: [...]
+     *   }
+     * }
+     */
+    collectMedia(
+        value,
+        media
+    ) {
+
+        if (
+            value === null ||
+            value === undefined
+        ) {
+
+            return;
+
+        }
+
+        if (
+            Array.isArray(value)
+        ) {
+
+            for (
+                const item
+                of value
+            ) {
+
+                this.collectMedia(
+                    item,
+                    media
+                );
+
+            }
+
+            return;
+
+        }
+
+        if (
+            typeof value !==
+            "object"
+        ) {
+
+            return;
+
+        }
+
+        /*
+         * Caso o objeto possua
+         * um array images.
+         */
+        if (
+            Array.isArray(
+                value.images
+            )
+        ) {
+
+            for (
+                const image
+                of value.images
+            ) {
+
+                if (
+                    !image ||
+                    !image.url
+                ) {
+
+                    continue;
+
+                }
+
+                /*
+                 * Neste momento aceitamos
+                 * caminhos locais do catálogo.
+                 *
+                 * Exemplo:
+                 *
+                 * /uploads/products/foto.jpg
+                 */
+                const imageUrl =
+                    String(
+                        image.url
+                    );
+
+                if (
+                    !imageUrl.startsWith(
+                        "/uploads/"
+                    )
+                ) {
+
+                    continue;
+
+                }
+
+                const exists =
+                    media.some(
+                        item =>
+                            item.path ===
+                            imageUrl
+                    );
+
+                if (exists) {
+
+                    continue;
+
+                }
+
+                media.push({
+
+                    type:
+                        "image",
+
+                    path:
+                        imageUrl
+
+                });
+
+            }
+
+        }
+
+        /*
+         * Continua percorrendo propriedades
+         * aninhadas, exceto images que já
+         * foram processadas acima.
+         */
+        for (
+            const [key, child]
+            of Object.entries(
+                value
+            )
+        ) {
+
+            if (
+                key === "images"
+            ) {
+
+                continue;
+
+            }
+
+            if (
+                child &&
+                typeof child === "object"
+            ) {
+
+                this.collectMedia(
+                    child,
+                    media
+                );
+
+            }
+
+        }
+
+    }
+
     extractContent(data) {
 
         const content =
             data
-                ?.choices?.[0]
+                ?.choices
+                ?.[0]
                 ?.message
                 ?.content;
 
@@ -793,4 +1030,5 @@ class OpenClawProvider extends Provider {
 
 }
 
-module.exports = OpenClawProvider;
+module.exports =
+    OpenClawProvider;

@@ -5,7 +5,7 @@ module.exports = {
     name: "getProduct",
 
     description:
-        "Obtém os dados de um produto ativo pertencente ao tenant informado.",
+        "Obtém os dados de um produto ativo pertencente ao tenant informado, incluindo as imagens cadastradas.",
 
     permissions: [
         "products.read"
@@ -49,7 +49,6 @@ module.exports = {
     async execute({
 
         tenantId,
-
         id
 
     }) {
@@ -78,7 +77,24 @@ module.exports = {
 
                 tenantId,
 
-                active: true
+                active:
+                    true
+
+            },
+
+            include: {
+
+                images: {
+
+                    select: {
+
+                        id: true,
+
+                        url: true
+
+                    }
+
+                }
 
             }
 

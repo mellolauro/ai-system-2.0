@@ -69,7 +69,7 @@ model User {
   phone      String?  @unique
   email      String?
   name       String
-
+  avatarUrl  String?  // <--- Guarda a URL da imagem (ex: "https://site.com/foto.jpg")
   role       UserRole @default(USER)
 
   tenantId   String
@@ -223,6 +223,8 @@ model Order {
   user          User          @relation(fields: [userId], references: [id])
 
   status        OrderStatus   @default(PENDING)
+  cancelReason  String?     // Observação do cancelamento (opcional, texto curto)
+  hidden        Boolean     @default(false) // Define se fica oculto na listagem
   paymentStatus PaymentStatus @default(PENDING)
   paymentMethod String?
 

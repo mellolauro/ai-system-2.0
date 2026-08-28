@@ -1,10 +1,20 @@
-const SessionManager = require("./SessionManager");
-const MemoryManager = require("./MemoryManager");
-const ContextBuilder = require("./ContextBuilder");
-const PromptManager = require("./PromptManager");
-const ToolManager = require("./ToolManager");
+const SessionManager =
+    require("./SessionManager");
 
-const AgentRouter = require("../routing/AgentRouter");
+const MemoryManager =
+    require("./MemoryManager");
+
+const ContextBuilder =
+    require("./ContextBuilder");
+
+const PromptManager =
+    require("./PromptManager");
+
+const ToolManager =
+    require("./ToolManager");
+
+const AgentRouter =
+    require("../routing/AgentRouter");
 
 const ProviderManager =
     require("../providers/ProviderManager");
@@ -28,6 +38,10 @@ class ChatPipeline {
                 request
             );
 
+        //----------------------------------------------------
+        // 2) Resolve usuário
+        //----------------------------------------------------
+
         const user =
             await UserService.getById({
 
@@ -40,7 +54,7 @@ class ChatPipeline {
             });
 
         //----------------------------------------------------
-        // 2) Carrega memória / Conversation
+        // 3) Carrega memória / Conversation
         //----------------------------------------------------
 
         const memory =
@@ -55,25 +69,24 @@ class ChatPipeline {
                     request.tenantId
 
             });
-         
-       console.log(
-           "[ChatPipeline][DEBUG] Session:",
-           session.key
-       );
 
-       console.log(
-           "[ChatPipeline][DEBUG] Session conversationId:",
-           session.conversationId
-       );
+        console.log(
+            "[ChatPipeline][DEBUG] Session:",
+            session.key
+        );
 
-       console.log(
-           "[ChatPipeline][DEBUG] Memory conversationId:",
-           memory.conversation.id
-       );
+        console.log(
+            "[ChatPipeline][DEBUG] Session conversationId:",
+            session.conversationId
+        );
 
+        console.log(
+            "[ChatPipeline][DEBUG] Memory conversationId:",
+            memory.conversation.id
+        );
 
         //----------------------------------------------------
-        // 3) Resolve agente
+        // 4) Resolve agente
         //----------------------------------------------------
 
         const agent =
@@ -86,14 +99,14 @@ class ChatPipeline {
 
                 user,
 
-               agentContext:
-                   request.agentContext ||
-                   "client" 
- 
+                agentContext:
+                    request.agentContext ||
+                    "client"
+
             });
 
         //----------------------------------------------------
-        // 4) Atualiza agente da sessão
+        // 5) Atualiza agente da sessão
         //----------------------------------------------------
 
         SessionManager.setAgent(
@@ -102,7 +115,7 @@ class ChatPipeline {
         );
 
         //----------------------------------------------------
-        // 5) Prompt
+        // 6) Prompt
         //----------------------------------------------------
 
         const prompt =
@@ -111,7 +124,7 @@ class ChatPipeline {
             );
 
         //----------------------------------------------------
-        // 6) Contexto
+        // 7) Contexto
         //----------------------------------------------------
 
         const context =
@@ -132,7 +145,7 @@ class ChatPipeline {
             });
 
         //----------------------------------------------------
-        // 7) Tools
+        // 8) Tools
         //----------------------------------------------------
 
         const tools =
@@ -141,7 +154,7 @@ class ChatPipeline {
             );
 
         //----------------------------------------------------
-        // 8) Resolve provider efetivo
+        // 9) Resolve provider efetivo
         //----------------------------------------------------
 
         const providerName =
@@ -154,7 +167,7 @@ class ChatPipeline {
             );
 
         //----------------------------------------------------
-        // 9) Resolve target do agente no provider
+        // 10) Resolve target
         //----------------------------------------------------
 
         const agentTarget =
@@ -168,10 +181,10 @@ class ChatPipeline {
                 : null;
 
         //----------------------------------------------------
-        // 10) Executa provider
+        // 11) Executa provider
         //----------------------------------------------------
 
-        const response =
+        const providerResult =
             await ProviderManager.execute({
 
                 provider:
@@ -198,6 +211,8 @@ class ChatPipeline {
 
                 context,
 
+                session,
+
                 tenantId:
                     request.tenantId,
 
@@ -212,8 +227,44 @@ class ChatPipeline {
 
             });
 
+        /*
+         * Compatibilidade:
+         *
+         * Provider antigo:
+         *     "texto"
+         *
+         * Provider novo:
+         *     {
+         *         text: "...",
+         *         media: [...]
+         *     }
+         */
+        const responseText =
+            typeof providerResult ===
+            "string"
+
+                ? providerResult
+
+                : (
+                    providerResult?.text ||
+                    providerResult?.response ||
+                    ""
+                );
+
+        const media =
+            typeof providerResult ===
+                "object" &&
+
+            Array.isArray(
+                providerResult?.media
+            )
+
+                ? providerResult.media
+
+                : [];
+
         //----------------------------------------------------
-        // 11) Persiste mensagem do usuário
+        // 12) Persiste mensagem do usuário
         //----------------------------------------------------
 
         await MemoryManager.saveUserMessage({
@@ -227,7 +278,7 @@ class ChatPipeline {
         });
 
         //----------------------------------------------------
-        // 12) Persiste resposta do assistant
+        // 13) Persiste resposta do assistant
         //----------------------------------------------------
 
         await MemoryManager.saveAssistantMessage({
@@ -236,12 +287,12 @@ class ChatPipeline {
                 memory.conversation.id,
 
             content:
-                response
+                responseText
 
         });
 
         //----------------------------------------------------
-        // 13) Retorno
+        // 14) Retorno
         //----------------------------------------------------
 
         return {
@@ -258,7 +309,10 @@ class ChatPipeline {
 
             agentTarget,
 
-            response
+            response:
+                responseText,
+
+            media
 
         };
 
@@ -266,4 +320,5 @@ class ChatPipeline {
 
 }
 
-module.exports = new ChatPipeline();
+module.exports =
+    new ChatPipeline();

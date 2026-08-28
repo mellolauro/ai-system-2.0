@@ -5,7 +5,7 @@ module.exports = {
     name: "searchProducts",
 
     description:
-        "Pesquisa produtos ativos pelo nome ou descrição dentro do tenant informado, podendo limitar o preço máximo.",
+        "Pesquisa produtos ativos pelo nome ou descrição dentro do tenant informado, podendo limitar o preço máximo. Retorna também as imagens cadastradas do produto.",
 
     permissions: [
         "products.read"
@@ -58,9 +58,7 @@ module.exports = {
     async execute({
 
         tenantId,
-
         query,
-
         maxPrice
 
     }) {
@@ -93,7 +91,8 @@ module.exports = {
 
                         contains: query,
 
-                        mode: "insensitive"
+                        mode:
+                            "insensitive"
 
                     }
 
@@ -105,7 +104,8 @@ module.exports = {
 
                         contains: query,
 
-                        mode: "insensitive"
+                        mode:
+                            "insensitive"
 
                     }
 
@@ -120,27 +120,60 @@ module.exports = {
             maxPrice !== null
         ) {
 
+            const price =
+                Number(maxPrice);
+
+            if (
+                !Number.isFinite(price)
+            ) {
+
+                throw new Error(
+                    "maxPrice deve ser numérico."
+                );
+
+            }
+
             where.price = {
 
-                lte: Number(maxPrice)
+                lte: price
 
             };
 
         }
 
-        return prisma.product.findMany({
+        const products =
+            await prisma.product.findMany({
 
-            where,
+                where,
 
-            orderBy: {
+                orderBy: {
 
-                name: "asc"
+                    name:
+                        "asc"
 
-            },
+                },
 
-            take: 10
+                take: 10,
 
-        });
+                include: {
+
+                    images: {
+
+                        select: {
+
+                            id: true,
+
+                            url: true
+
+                        }
+
+                    }
+
+                }
+
+            });
+
+        return products;
 
     }
 
