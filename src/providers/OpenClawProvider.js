@@ -125,6 +125,10 @@ class OpenClawProvider extends Provider {
 
             userId,
 
+            userRole,
+
+            tenantName,
+
             channel,
 
             permissions = [],
@@ -183,6 +187,10 @@ class OpenClawProvider extends Provider {
             tenantId,
 
             userId,
+
+            userRole,
+
+            tenantName,
 
             channel,
 

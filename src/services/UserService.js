@@ -1,4 +1,5 @@
-const prisma = require("../prisma");
+const prisma =
+    require("../prisma");
 
 class UserService {
 
@@ -49,6 +50,73 @@ class UserService {
 
     }
 
+    async getByTelegramId({
+        telegramId
+    }) {
+
+        if (!telegramId) {
+
+            throw new Error(
+                "telegramId é obrigatório."
+            );
+
+        }
+
+        return prisma.user.findUnique({
+
+            where: {
+
+                telegramId:
+                    String(
+                        telegramId
+                    )
+
+            },
+
+            include: {
+
+                tenant:
+                    true
+
+            }
+
+        });
+
+    }
+
+    async getByPhone({
+        phone
+    }) {
+
+        if (!phone) {
+
+            throw new Error(
+                "phone é obrigatório."
+            );
+
+        }
+
+        return prisma.user.findUnique({
+
+            where: {
+
+                phone:
+                    String(phone)
+
+            },
+
+            include: {
+
+                tenant:
+                    true
+
+            }
+
+        });
+
+    }
+
 }
 
-module.exports = new UserService();
+module.exports =
+    new UserService();

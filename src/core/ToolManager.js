@@ -58,7 +58,9 @@ class ToolManager {
 
     list() {
 
-        return [...this.tools.keys()];
+        return [
+            ...this.tools.keys()
+        ];
 
     }
 
@@ -83,14 +85,17 @@ class ToolManager {
             .map(toolName => {
 
                 if (
-                    typeof toolName !== "string"
+                    typeof toolName !==
+                    "string"
                 ) {
 
                     return toolName;
 
                 }
 
-                return this.get(toolName);
+                return this.get(
+                    toolName
+                );
 
             })
             .filter(Boolean);
@@ -101,112 +106,134 @@ class ToolManager {
      * Converte as Tools internas do AI-System
      * para o formato de Function Calling.
      *
-     * Importante:
+     * Campos controlados pelo Kernel:
      *
      * tenantId
      * userId
      * sessionId
      * channel
      *
-     * são informações confiáveis da aplicação.
-     *
-     * Elas NÃO são expostas ao LLM.
+     * não são fornecidos pelo LLM.
      */
     getDefinitions(agent) {
 
         const tools =
-            this.getTools(agent);
+            this.getTools(
+                agent
+            );
 
-        return tools.map(tool => {
+        return tools.map(
+            tool => {
 
-            const schema =
-                tool.schema || {
+                const schema =
+                    tool.schema || {
 
-                    type: "object",
+                        type:
+                            "object",
 
-                    properties: {},
+                        properties:
+                            {},
 
-                    additionalProperties: false
+                        additionalProperties:
+                            false
+
+                    };
+
+                const properties = {
+
+                    ...(schema.properties || {})
 
                 };
 
-            const properties = {
+                const required =
+                    Array.isArray(
+                        schema.required
+                    )
 
-                ...(schema.properties || {})
+                        ? [
+                            ...schema.required
+                        ]
 
-            };
+                        : [];
 
-            const required =
-                Array.isArray(schema.required)
-                    ? [...schema.required]
-                    : [];
+                /*
+                 * Campos controlados
+                 * pelo Kernel.
+                 */
+                const trustedFields = [
 
-            /*
-             * Campos controlados pelo Kernel.
-             *
-             * O LLM nunca deve fornecer esses valores.
-             */
-            const trustedFields = [
+                    "tenantId",
+                    "userId",
+                    "sessionId",
+                    "channel"
 
-                "tenantId",
-                "userId",
-                "sessionId",
-                "channel"
+                ];
 
-            ];
+                for (
+                    const field
+                    of trustedFields
+                ) {
 
-            for (
-                const field
-                of trustedFields
-            ) {
+                    delete properties[
+                        field
+                    ];
 
-                delete properties[field];
+                    const index =
+                        required.indexOf(
+                            field
+                        );
 
-                const index =
-                    required.indexOf(field);
+                    if (
+                        index !== -1
+                    ) {
 
-                if (index !== -1) {
-
-                    required.splice(index, 1);
-
-                }
-
-            }
-
-            return {
-
-                type: "function",
-
-                function: {
-
-                    name: tool.name,
-
-                    description:
-                        tool.description || "",
-
-                    parameters: {
-
-                        ...schema,
-
-                        type:
-                            schema.type ||
-                            "object",
-
-                        properties,
-
-                        required,
-
-                        additionalProperties:
-                            schema.additionalProperties ??
-                            false
+                        required.splice(
+                            index,
+                            1
+                        );
 
                     }
 
                 }
 
-            };
+                return {
 
-        });
+                    type:
+                        "function",
+
+                    function: {
+
+                        name:
+                            tool.name,
+
+                        description:
+                            tool.description ||
+                            "",
+
+                        parameters: {
+
+                            ...schema,
+
+                            type:
+                                schema.type ||
+                                "object",
+
+                            properties,
+
+                            required,
+
+                            additionalProperties:
+                                schema.additionalProperties ??
+                                false
+
+                        }
+
+                    }
+
+                };
+
+            }
+        );
 
     }
 
@@ -217,7 +244,9 @@ class ToolManager {
     ) {
 
         const tool =
-            this.get(name);
+            this.get(
+                name
+            );
 
         if (!tool) {
 
@@ -229,6 +258,9 @@ class ToolManager {
 
         /*
          * Parâmetros enviados pelo LLM.
+         *
+         * Fazemos uma cópia antes
+         * de acrescentar dados confiáveis.
          */
         const safeParams = {
 
@@ -240,7 +272,8 @@ class ToolManager {
          * Contexto confiável da aplicação.
          *
          * Esses valores sempre sobrescrevem
-         * qualquer valor enviado pelo modelo.
+         * qualquer valor eventualmente enviado
+         * pelo modelo.
          */
 
         if (
@@ -280,11 +313,23 @@ class ToolManager {
         }
 
         /*
+         * userRole NÃO é colocado em safeParams.
+         *
+         * Ele é contexto confiável do Kernel,
+         * não argumento da Tool fornecido pelo LLM.
+         *
+         * O contexto completo será enviado
+         * separadamente ao execute() da Tool.
+         */
+
+        /*
          * Validação de permissões.
          */
 
         if (
-            Array.isArray(tool.permissions) &&
+            Array.isArray(
+                tool.permissions
+            ) &&
             tool.permissions.length > 0
         ) {
 
@@ -292,7 +337,9 @@ class ToolManager {
                 Array.isArray(
                     context.permissions
                 )
+
                     ? context.permissions
+
                     : [];
 
             const authorized =
@@ -315,110 +362,143 @@ class ToolManager {
 
         /*
          * Executa a Tool.
+         *
+         * IMPORTANTE:
+         *
+         * O segundo argumento é o contexto
+         * confiável do Kernel.
+         *
+         * Assim uma Tool poderá acessar,
+         * por exemplo:
+         *
+         * context.userRole
+         * context.permissions
+         * context.channel
          */
-
         return tool.execute(
-            safeParams
+            safeParams,
+            context
         );
 
     }
 
     load(directory) {
 
-        if (!fs.existsSync(directory)) {
+        if (
+            !fs.existsSync(
+                directory
+            )
+        ) {
 
             return;
 
         }
 
-        const walk = dir => {
+        const walk =
+            dir => {
 
-            const files =
-                fs.readdirSync(dir);
-
-            for (
-                const file
-                of files
-            ) {
-
-                const fullPath =
-                    path.join(
-                        dir,
-                        file
+                const files =
+                    fs.readdirSync(
+                        dir
                     );
 
-                const stat =
-                    fs.statSync(
-                        fullPath
+                for (
+                    const file
+                    of files
+                ) {
+
+                    const fullPath =
+                        path.join(
+                            dir,
+                            file
+                        );
+
+                    const stat =
+                        fs.statSync(
+                            fullPath
+                        );
+
+                    if (
+                        stat.isDirectory()
+                    ) {
+
+                        walk(
+                            fullPath
+                        );
+
+                        continue;
+
+                    }
+
+                    if (
+                        !file.endsWith(
+                            ".js"
+                        )
+                    ) {
+
+                        continue;
+
+                    }
+
+                    /*
+                     * Evita carregar
+                     * o próprio Loader.
+                     */
+                    if (
+                        file ===
+                        "Loader.js"
+                    ) {
+
+                        continue;
+
+                    }
+
+                    delete require.cache[
+                        require.resolve(
+                            fullPath
+                        )
+                    ];
+
+                    const tool =
+                        require(
+                            fullPath
+                        );
+
+                    /*
+                     * Somente Tools que seguem
+                     * o contrato novo são registradas.
+                     */
+                    if (
+                        !tool ||
+                        !tool.name ||
+                        typeof tool.execute !==
+                            "function"
+                    ) {
+
+                        continue;
+
+                    }
+
+                    this.register(
+                        tool.name,
+                        tool
                     );
 
-                if (stat.isDirectory()) {
-
-                    walk(fullPath);
-
-                    continue;
+                    console.log(
+                        `🔧 Tool carregada: ${tool.name}`
+                    );
 
                 }
 
-                if (!file.endsWith(".js")) {
+            };
 
-                    continue;
-
-                }
-
-                /*
-                 * Evita carregar o próprio Loader.
-                 */
-
-                if (
-                    file === "Loader.js"
-                ) {
-
-                    continue;
-
-                }
-
-                delete require.cache[
-                    require.resolve(
-                        fullPath
-                    )
-                ];
-
-                const tool =
-                    require(fullPath);
-
-                /*
-                 * Somente Tools que seguem
-                 * o contrato novo são registradas.
-                 */
-
-                if (
-                    !tool ||
-                    !tool.name ||
-                    typeof tool.execute !== "function"
-                ) {
-
-                    continue;
-
-                }
-
-                this.register(
-                    tool.name,
-                    tool
-                );
-
-                console.log(
-                    `🔧 Tool carregada: ${tool.name}`
-                );
-
-            }
-
-        };
-
-        walk(directory);
+        walk(
+            directory
+        );
 
     }
 
 }
 
-module.exports = new ToolManager();
+module.exports =
+    new ToolManager();

@@ -1,4 +1,5 @@
-const AgentRegistry = require("../core/AgentRegistry");
+const AgentRegistry =
+    require("../core/AgentRegistry");
 
 class AgentRouter {
 
@@ -10,17 +11,22 @@ class AgentRouter {
     }) {
 
         /*
-         * Contexto administrativo explícito.
+         * ==========================================
+         * CONTEXTO ADMINISTRATIVO EXPLÍCITO
+         * ==========================================
          *
          * O usuário precisa ser ADMIN e a requisição
-         * precisa solicitar o contexto "admin".
+         * precisa solicitar o contexto admin.
          */
+
         if (
-            agentContext === "admin"
+            agentContext ===
+            "admin"
         ) {
 
             if (
-                user?.role !== "ADMIN"
+                user?.role !==
+                "ADMIN"
             ) {
 
                 throw new Error(
@@ -36,12 +42,15 @@ class AgentRouter {
         }
 
         /*
-         * Contexto normal do cliente.
+         * ==========================================
+         * CONTEXTO NORMAL DO CLIENTE
+         * ==========================================
          */
 
         if (
             !message ||
-            typeof message !== "string"
+            typeof message !==
+            "string"
         ) {
 
             return this.resolveSessionAgent(
@@ -60,39 +69,52 @@ class AgentRouter {
                 );
 
         /*
-         * 1. Intenções explícitas
+         * ==========================================
+         * 1. CANCELAMENTO DE PEDIDO
+         * ==========================================
+         *
+         * Deve ocorrer ANTES da regra genérica
+         * que contém a palavra "pedido".
+         *
+         * Assim:
+         *
+         * "Qual o status do meu pedido?"
+         *    -> sales
+         *
+         * "Quero cancelar meu pedido"
+         *    -> support
          */
 
-        if (this.matches(text, [
+        if (
+            this.matches(
+                text,
+                [
 
-            "dashboard",
-            "grafico",
-            "indicador",
-            "indicadores",
-            "relatorio",
-            "analytics",
-            "metricas",
-            "faturamento"
+                    "cancelar pedido",
 
-        ])) {
+                    "cancele o pedido",
 
-            return this.getAgent(
-                "aiData"
-            );
+                    "cancelamento do pedido",
 
-        }
+                    "cancelamento de pedido",
 
-        if (this.matches(text, [
+                    "quero cancelar",
 
-            "erro",
-            "falha",
-            "bug",
-            "suporte",
-            "nao funciona",
-            "problema tecnico",
-            "problema técnico"
+                    "quero cancelar meu pedido",
 
-        ])) {
+                    "quero cancelar o pedido",
+
+                    "desistir do pedido",
+
+                    "desistir da compra",
+
+                    "cancelar minha compra",
+
+                    "cancelar o pedido"
+
+                ]
+            )
+        ) {
 
             return this.getAgent(
                 "support"
@@ -100,31 +122,101 @@ class AgentRouter {
 
         }
 
-        if (this.matches(text, [
+        /*
+         * ==========================================
+         * 2. INTENÇÕES DE DADOS / ANALYTICS
+         * ==========================================
+         */
 
-            "comprar",
-            "compra",
-            "produto",
-            "produtos",
-            "pedido",
-            "pedidos",
-            "preco",
-            "preço",
-            "valor",
-            "mouse",
-            "mouses",
-            "teclado",
-            "monitor",
-            "fone",
-            "catalogo",
-            "catálogo",
-            "estoque",
-            "disponivel",
-            "disponíveis",
-            "carrinho",
-            "vender"
+        if (
+            this.matches(
+                text,
+                [
 
-        ])) {
+                    "dashboard",
+                    "grafico",
+                    "indicador",
+                    "indicadores",
+                    "relatorio",
+                    "analytics",
+                    "metricas",
+                    "faturamento"
+
+                ]
+            )
+        ) {
+
+            return this.getAgent(
+                "aiData"
+            );
+
+        }
+
+        /*
+         * ==========================================
+         * 3. SUPORTE TÉCNICO
+         * ==========================================
+         */
+
+        if (
+            this.matches(
+                text,
+                [
+
+                    "erro",
+                    "falha",
+                    "bug",
+                    "suporte",
+                    "nao funciona",
+                    "problema tecnico",
+                    "problema técnico"
+
+                ]
+            )
+        ) {
+
+            return this.getAgent(
+                "support"
+            );
+
+        }
+
+        /*
+         * ==========================================
+         * 4. VENDAS
+         * ==========================================
+         */
+
+        if (
+            this.matches(
+                text,
+                [
+
+                    "comprar",
+                    "compra",
+                    "produto",
+                    "produtos",
+                    "pedido",
+                    "pedidos",
+                    "preco",
+                    "preço",
+                    "valor",
+                    "mouse",
+                    "mouses",
+                    "teclado",
+                    "monitor",
+                    "fone",
+                    "catalogo",
+                    "catálogo",
+                    "estoque",
+                    "disponivel",
+                    "disponíveis",
+                    "carrinho",
+                    "vender"
+
+                ]
+            )
+        ) {
 
             return this.getAgent(
                 "sales"
@@ -133,9 +225,11 @@ class AgentRouter {
         }
 
         /*
-         * 2. Sem nova intenção explícita:
-         * mantém o agente da sessão.
+         * ==========================================
+         * 5. SEM NOVA INTENÇÃO
+         * ==========================================
          */
+
         return this.resolveSessionAgent(
             session
         );
@@ -169,7 +263,9 @@ class AgentRouter {
     getAgent(id) {
 
         const agent =
-            AgentRegistry.get(id);
+            AgentRegistry.get(
+                id
+            );
 
         if (!agent) {
 
@@ -190,11 +286,14 @@ class AgentRouter {
 
         return keywords.some(
             keyword =>
-                text.includes(keyword)
+                text.includes(
+                    keyword
+                )
         );
 
     }
 
 }
 
-module.exports = new AgentRouter();
+module.exports =
+    new AgentRouter();

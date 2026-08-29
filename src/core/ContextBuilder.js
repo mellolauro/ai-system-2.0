@@ -14,19 +14,35 @@ class ContextBuilder {
 
         userMessage,
 
-        metadata = {}
+        metadata = {},
+
+        tenant = null,
+
+        user = null
 
     }) {
 
         const messages = [
 
-            ...this.buildSystem(prompt),
+            ...this.buildSystem(
 
-            ...this.buildMemory(memory),
+                prompt,
 
-            ...this.buildHistory(history),
+                tenant
 
-            ...this.buildUser(userMessage)
+            ),
+
+            ...this.buildMemory(
+                memory
+            ),
+
+            ...this.buildHistory(
+                history
+            ),
+
+            ...this.buildUser(
+                userMessage
+            )
 
         ];
 
@@ -34,52 +50,103 @@ class ContextBuilder {
 
             session,
 
-            provider: agent.getProvider(),
+            provider:
+                agent.getProvider(),
 
-            model: agent.getModel(),
+            model:
+                agent.getModel(),
 
-            temperature: agent.getTemperature(),
+            temperature:
+                agent.getTemperature(),
 
-            maxTokens: agent.getMaxTokens(),
+            maxTokens:
+                agent.getMaxTokens(),
 
-            agent: agent.getId(),
+            agent:
+                agent.getId(),
 
             messages,
 
-            metadata: this.buildMetadata(
-                agent,
-                metadata
-            )
+            metadata:
+                this.buildMetadata(
+
+                    agent,
+
+                    metadata,
+
+                    tenant,
+
+                    user
+
+                )
 
         };
 
     }
 
-    buildSystem(prompt) {
+    buildSystem(
+        prompt,
+        tenant
+    ) {
 
-        if (!prompt) {
+        const messages = [];
 
-            return [];
+        /*
+         * Prompt fixo do agente.
+         */
+        if (prompt) {
+
+            messages.push({
+
+                role:
+                    "system",
+
+                content:
+                    prompt
+
+            });
 
         }
 
-        return [
+        /*
+         * Contexto dinâmico do tenant.
+         *
+         * Não colocamos isso no prompt.md
+         * porque o nome da empresa depende
+         * do tenant da requisição.
+         */
+        if (
+            tenant &&
+            tenant.name
+        ) {
 
-            {
+            messages.push({
 
-                role: "system",
+                role:
+                    "system",
 
-                content: prompt
+                content:
+                    [
+                        "CONTEXTO DA EMPRESA",
 
-            }
+                        `Nome da empresa: ${tenant.name}`
 
-        ];
+                    ].join("\n")
+
+            });
+
+        }
+
+        return messages;
 
     }
 
     buildMemory(memory) {
 
-        if (!memory.length) {
+        if (
+            !Array.isArray(memory) ||
+            !memory.length
+        ) {
 
             return [];
 
@@ -89,7 +156,8 @@ class ContextBuilder {
 
             {
 
-                role: "system",
+                role:
+                    "system",
 
                 content:
                     "Memória conhecida:\n\n" +
@@ -104,7 +172,9 @@ class ContextBuilder {
     buildHistory(history) {
 
         return Array.isArray(history)
+
             ? history
+
             : [];
 
     }
@@ -121,9 +191,11 @@ class ContextBuilder {
 
             {
 
-                role: "user",
+                role:
+                    "user",
 
-                content: message
+                content:
+                    message
 
             }
 
@@ -131,16 +203,31 @@ class ContextBuilder {
 
     }
 
-    buildMetadata(agent, metadata) {
+    buildMetadata(
+        agent,
+        metadata,
+        tenant,
+        user
+    ) {
 
         return {
 
-            agent: agent.getId(),
+            agent:
+                agent.getId(),
 
-            version: agent.getVersion(),
+            version:
+                agent.getVersion(),
 
             timestamp:
                 new Date().toISOString(),
+
+            tenantName:
+                tenant?.name ||
+                null,
+
+            userRole:
+                user?.role ||
+                null,
 
             ...metadata
 
@@ -150,4 +237,5 @@ class ContextBuilder {
 
 }
 
-module.exports = new ContextBuilder();
+module.exports =
+    new ContextBuilder();

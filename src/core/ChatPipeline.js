@@ -25,6 +25,9 @@ const aiConfig =
 const UserService =
     require("../services/UserService");
 
+const TenantService =
+    require("../services/TenantService");
+
 class ChatPipeline {
 
     async execute(request) {
@@ -54,7 +57,19 @@ class ChatPipeline {
             });
 
         //----------------------------------------------------
-        // 3) Carrega memória / Conversation
+        // 3) Resolve tenant
+        //----------------------------------------------------
+
+        const tenant =
+            await TenantService.getById({
+
+                tenantId:
+                    request.tenantId
+
+            });
+
+        //----------------------------------------------------
+        // 4) Carrega memória / Conversation
         //----------------------------------------------------
 
         const memory =
@@ -85,8 +100,13 @@ class ChatPipeline {
             memory.conversation.id
         );
 
+        console.log(
+            "[ChatPipeline][DEBUG] Tenant:",
+            tenant.name
+        );
+
         //----------------------------------------------------
-        // 4) Resolve agente
+        // 5) Resolve agente
         //----------------------------------------------------
 
         const agent =
@@ -106,16 +126,19 @@ class ChatPipeline {
             });
 
         //----------------------------------------------------
-        // 5) Atualiza agente da sessão
+        // 6) Atualiza agente da sessão
         //----------------------------------------------------
 
         SessionManager.setAgent(
+
             session,
+
             agent.getId()
+
         );
 
         //----------------------------------------------------
-        // 6) Prompt
+        // 7) Prompt
         //----------------------------------------------------
 
         const prompt =
@@ -124,7 +147,7 @@ class ChatPipeline {
             );
 
         //----------------------------------------------------
-        // 7) Contexto
+        // 8) Contexto
         //----------------------------------------------------
 
         const context =
@@ -140,12 +163,16 @@ class ChatPipeline {
                     memory.history,
 
                 userMessage:
-                    request.message
+                    request.message,
+
+                tenant,
+
+                user
 
             });
 
         //----------------------------------------------------
-        // 8) Tools
+        // 9) Tools
         //----------------------------------------------------
 
         const tools =
@@ -154,7 +181,7 @@ class ChatPipeline {
             );
 
         //----------------------------------------------------
-        // 9) Resolve provider efetivo
+        // 10) Resolve provider
         //----------------------------------------------------
 
         const providerName =
@@ -167,7 +194,7 @@ class ChatPipeline {
             );
 
         //----------------------------------------------------
-        // 10) Resolve target
+        // 11) Resolve target
         //----------------------------------------------------
 
         const agentTarget =
@@ -181,7 +208,7 @@ class ChatPipeline {
                 : null;
 
         //----------------------------------------------------
-        // 11) Executa provider
+        // 12) Executa provider
         //----------------------------------------------------
 
         const providerResult =
@@ -219,6 +246,12 @@ class ChatPipeline {
                 userId:
                     request.userId,
 
+                userRole:
+                    user.role,
+
+                tenantName:
+                    tenant.name,
+
                 channel:
                     request.channel,
 
@@ -227,18 +260,10 @@ class ChatPipeline {
 
             });
 
-        /*
-         * Compatibilidade:
-         *
-         * Provider antigo:
-         *     "texto"
-         *
-         * Provider novo:
-         *     {
-         *         text: "...",
-         *         media: [...]
-         *     }
-         */
+        //----------------------------------------------------
+        // 13) Normaliza resposta do provider
+        //----------------------------------------------------
+
         const responseText =
             typeof providerResult ===
             "string"
@@ -264,7 +289,7 @@ class ChatPipeline {
                 : [];
 
         //----------------------------------------------------
-        // 12) Persiste mensagem do usuário
+        // 14) Persiste mensagem do usuário
         //----------------------------------------------------
 
         await MemoryManager.saveUserMessage({
@@ -278,7 +303,7 @@ class ChatPipeline {
         });
 
         //----------------------------------------------------
-        // 13) Persiste resposta do assistant
+        // 15) Persiste resposta
         //----------------------------------------------------
 
         await MemoryManager.saveAssistantMessage({
@@ -292,7 +317,7 @@ class ChatPipeline {
         });
 
         //----------------------------------------------------
-        // 14) Retorno
+        // 16) Retorno
         //----------------------------------------------------
 
         return {
@@ -312,7 +337,17 @@ class ChatPipeline {
             response:
                 responseText,
 
-            media
+            media,
+
+            tenant: {
+
+                id:
+                    tenant.id,
+
+                name:
+                    tenant.name
+
+            }
 
         };
 

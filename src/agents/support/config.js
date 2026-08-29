@@ -5,7 +5,7 @@ module.exports = {
     name: "Support Agent",
 
     description:
-        "Especialista em suporte técnico e atendimento.",
+        "Especialista em suporte técnico, atendimento ao cliente e solicitações relacionadas a pedidos.",
 
     prompt: "./prompt.md",
 
@@ -14,7 +14,13 @@ module.exports = {
     memory: true,
 
     permissions: [
+
         "orders.read",
+
+        "orders.cancel",
+
         "products.read"
+
     ]
+
 };
