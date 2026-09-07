@@ -24,7 +24,14 @@ router.get("/", async (req, res, next) => {
       prisma.order.findMany({
         take: 5,
         orderBy: { createdAt: "desc" },
-        include: { user: true, driver: true }
+        include: { 
+          user: true, 
+          deliveries: {
+            include: {
+              driver: true
+            }
+          } 
+        }
       })
     ]);
 
@@ -110,13 +117,21 @@ router.post("/orders/:id/assign-driver", async (req, res, next) => {
     const { id } = req.params;
     const { driverId } = req.body;
 
-    await prisma.order.update({
-      where: { id },
-      data: {
-        driverId: driverId || null,
-        status: driverId ? "SHIPPED" : "PENDING"
-      }
-    });
+    // Atualiza ou cria a entrega associada ao pedido
+    if (driverId) {
+      await prisma.delivery.create({
+        data: {
+          orderId: id,
+          driverId: driverId,
+          status: "ASSIGNED"
+        }
+      });
+
+      await prisma.order.update({
+        where: { id },
+        data: { status: "SHIPPED" }
+      });
+    }
 
     res.redirect(`/orders/${id}`);
   } catch (err) {
