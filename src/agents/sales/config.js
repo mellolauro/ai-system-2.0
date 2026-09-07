@@ -17,6 +17,7 @@ module.exports = {
         "orders.create",
         "orders.read",
         "cart.read",
-        "cart.write"
+        "cart.write",
+        "delivery.read"
     ]
 };

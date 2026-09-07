@@ -1,0 +1,101 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Gestão de Entregadores</h1>
+      <p class="text-sm text-slate-500">Cadastre e gerencie os motoboys e motoristas da sua frota.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- FORMULÁRIO DE CADASTRO -->
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
+      <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <i class="fas fa-user-plus text-blue-600"></i> Novo Entregador
+      </h2>
+
+      <form action="/dashboard/drivers" method="POST" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nome Completo</label>
+          <input type="text" name="name" required placeholder="Ex: Carlos Entregador"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Telefone / WhatsApp</label>
+          <input type="text" name="phone" required placeholder="+5521999999999"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Veículo</label>
+          <input type="text" name="vehicle" placeholder="Ex: Moto Honda CG 160"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Placa do Veículo</label>
+          <input type="text" name="plate" placeholder="Ex: ABC-1234"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+
+        <button type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg shadow-sm transition-all text-sm flex items-center justify-center gap-2">
+          <i class="fas fa-save"></i> Cadastrar Entregador
+        </button>
+      </form>
+    </div>
+
+    <!-- LISTA DE ENTREGADORES -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-6 border-b border-slate-100">
+        <h2 class="text-lg font-bold text-slate-800">Entregadores Cadastrados</h2>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-xs uppercase">
+              <th class="p-4">Nome</th>
+              <th class="p-4">Telefone</th>
+              <th class="p-4">Veículo / Placa</th>
+              <th class="p-4">Entregas Associadas</th>
+              <th class="p-4 text-center">Status GPS</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <% if (drivers && drivers.length > 0) { %>
+              <% drivers.forEach(driver => { %>
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="p-4 font-semibold text-slate-800"><%= driver.name %></td>
+                  <td class="p-4 text-slate-600"><%= driver.phone %></td>
+                  <td class="p-4 text-slate-600">
+                    <%= driver.vehicle || '-' %>
+                    <% if (driver.plate) { %>
+                      <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono ml-1"><%= driver.plate %></span>
+                    <% } %>
+                  </td>
+                  <td class="p-4 font-medium text-blue-600"><%= driver._count.deliveries %> entregas</td>
+                  <td class="p-4 text-center">
+                    <% if (driver.latitude && driver.longitude) { %>
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Ativo
+                      </span>
+                    <% } else { %>
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
+                        Sem Sinal
+                      </span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            <% } else { %>
+              <tr>
+                <td colspan="5" class="p-8 text-center text-slate-400">Nenhum entregador cadastrado ainda.</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

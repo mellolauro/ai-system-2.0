@@ -1,7 +1,11 @@
 const axios = require("axios");
+const path = require("path");
 
-const Provider = require("./Provider");
-const ToolManager = require("../core/ToolManager");
+const Provider =
+    require("./Provider");
+
+const ToolManager =
+    require("../core/ToolManager");
 
 class OpenClawProvider extends Provider {
 
@@ -34,15 +38,30 @@ class OpenClawProvider extends Provider {
                 60000
             );
 
-        /*
-         * Limite de segurança para evitar
-         * loop infinito de Tool Calling.
-         */
         this.maxToolCalls =
             Number(
                 config.maxToolCalls ||
                 process.env.MAX_TOOL_CALLS ||
                 8
+            );
+
+        /*
+         * Diretório público do AI-System.
+         *
+         * As imagens cadastradas no banco possuem
+         * caminhos como:
+         *
+         * /uploads/products/foto.jpg
+         *
+         * O OpenClaw precisa receber um caminho
+         * que realmente exista no filesystem.
+         */
+        this.publicDir =
+            config.publicDir ||
+            process.env.AI_SYSTEM_PUBLIC_DIR ||
+            path.resolve(
+                process.cwd(),
+                "public"
             );
 
         this.http =
@@ -138,8 +157,8 @@ class OpenClawProvider extends Provider {
         } = request;
 
         /*
-         * Resolve o agente do AI-System para
-         * o target correspondente no OpenClaw.
+         * Resolve o agente do AI-System
+         * para o target OpenClaw.
          */
         const model =
             request.agentTarget ||
@@ -156,21 +175,13 @@ class OpenClawProvider extends Provider {
                 : [];
 
         /*
-         * Mídias encontradas durante a execução
-         * das Tools desta requisição.
-         *
-         * Exemplo:
-         *
-         * {
-         *   type: "image",
-         *   path: "/uploads/products/foto.jpg"
-         * }
+         * Mídias encontradas durante
+         * o ciclo de Tool Calling.
          */
         const media = [];
 
         /*
-         * As tools já devem chegar aqui no formato
-         * OpenAI-compatible produzido pelo ToolManager.
+         * Tools no formato OpenAI.
          */
         const toolDefinitions =
             this.normalizeTools(
@@ -179,8 +190,6 @@ class OpenClawProvider extends Provider {
 
         /*
          * Contexto confiável da aplicação.
-         *
-         * Esses valores não são escolhidos pelo LLM.
          */
         const toolContext = {
 
@@ -216,16 +225,16 @@ class OpenClawProvider extends Provider {
         );
 
         /*
-         * Executa o ciclo:
+         * Ciclo:
          *
          * OpenClaw
-         *    ↓
-         * tool_calls
-         *    ↓
+         *     ↓
+         * Tool Call
+         *     ↓
          * ToolManager
-         *    ↓
-         * resultado
-         *    ↓
+         *     ↓
+         * Resultado
+         *     ↓
          * OpenClaw
          */
         for (
@@ -275,13 +284,6 @@ class OpenClawProvider extends Provider {
                 payload.tools =
                     toolDefinitions;
 
-                /*
-                 * Mantemos auto.
-                 *
-                 * O Tool Calling já foi validado
-                 * e agora permitimos que o agente
-                 * decida quando usar uma Tool.
-                 */
                 payload.tool_choice =
                     "auto";
 
@@ -374,7 +376,10 @@ class OpenClawProvider extends Provider {
 
                         text,
 
-                        media
+                        media:
+                            this.normalizeMedia(
+                                media
+                            )
 
                     };
 
@@ -409,8 +414,8 @@ class OpenClawProvider extends Provider {
                 }
 
                 /*
-                 * A mensagem assistant contendo
-                 * tool_calls precisa entrar no histórico
+                 * Mensagem assistant contendo
+                 * tool_calls entra no histórico
                  * antes das respostas das Tools.
                  */
                 conversationMessages.push(
@@ -519,18 +524,8 @@ class OpenClawProvider extends Provider {
                         );
 
                         /*
-                         * Coleta imagens presentes
-                         * no resultado da Tool.
-                         *
-                         * Funciona tanto para:
-                         *
-                         * getProduct()
-                         *     → objeto
-                         *
-                         * quanto para:
-                         *
-                         * searchProducts()
-                         *     → array de objetos
+                         * Coleta todas as imagens
+                         * encontradas no resultado.
                          */
                         this.collectMedia(
                             result,
@@ -554,8 +549,8 @@ class OpenClawProvider extends Provider {
                     }
 
                     /*
-                     * Resultado da Tool retorna para
-                     * o OpenClaw como role=tool.
+                     * Resultado da Tool volta
+                     * para o OpenClaw.
                      */
                     conversationMessages.push({
 
@@ -600,11 +595,8 @@ class OpenClawProvider extends Provider {
     async stream(request = {}) {
 
         /*
-         * Streaming de Tool Calling exige
-         * processamento incremental dos eventos.
-         *
-         * Para o MVP mantemos execução
-         * não-streaming.
+         * MVP:
+         * Tool Calling continua não-streaming.
          */
         return this.generate({
 
@@ -796,26 +788,8 @@ class OpenClawProvider extends Provider {
     }
 
     /*
-     * Procura recursivamente objetos de imagem
-     * dentro do resultado de uma Tool.
-     *
-     * Exemplos suportados:
-     *
-     * {
-     *   images: [...]
-     * }
-     *
-     * [
-     *   {
-     *      images: [...]
-     *   }
-     * ]
-     *
-     * {
-     *   product: {
-     *      images: [...]
-     *   }
-     * }
+     * Procura imagens recursivamente
+     * dentro do retorno das Tools.
      */
     collectMedia(
         value,
@@ -860,10 +834,6 @@ class OpenClawProvider extends Provider {
 
         }
 
-        /*
-         * Caso o objeto possua
-         * um array images.
-         */
         if (
             Array.isArray(
                 value.images
@@ -884,21 +854,13 @@ class OpenClawProvider extends Provider {
 
                 }
 
-                /*
-                 * Neste momento aceitamos
-                 * caminhos locais do catálogo.
-                 *
-                 * Exemplo:
-                 *
-                 * /uploads/products/foto.jpg
-                 */
-                const imageUrl =
+                const relativeUrl =
                     String(
                         image.url
-                    );
+                    ).trim();
 
                 if (
-                    !imageUrl.startsWith(
+                    !relativeUrl.startsWith(
                         "/uploads/"
                     )
                 ) {
@@ -907,14 +869,40 @@ class OpenClawProvider extends Provider {
 
                 }
 
+                /*
+                 * Converte:
+                 *
+                 * /uploads/products/foto.jpg
+                 *
+                 * em:
+                 *
+                 * /home/lauro/ai-system-2.0/public/uploads/products/foto.jpg
+                 */
+                const relativePath =
+                    relativeUrl.replace(
+                        /^\/+/,
+                        ""
+                    );
+
+                const absolutePath =
+                    path.resolve(
+                        this.publicDir,
+                        relativePath
+                    );
+
+                /*
+                 * Evita duplicação.
+                 */
                 const exists =
                     media.some(
                         item =>
                             item.path ===
-                            imageUrl
+                            absolutePath
                     );
 
-                if (exists) {
+                if (
+                    exists
+                ) {
 
                     continue;
 
@@ -926,7 +914,13 @@ class OpenClawProvider extends Provider {
                         "image",
 
                     path:
-                        imageUrl
+                        absolutePath,
+
+                    url:
+                        relativeUrl,
+
+                    mimeType:
+                        "image/jpeg"
 
                 });
 
@@ -935,9 +929,8 @@ class OpenClawProvider extends Provider {
         }
 
         /*
-         * Continua percorrendo propriedades
-         * aninhadas, exceto images que já
-         * foram processadas acima.
+         * Continua pesquisando objetos
+         * aninhados.
          */
         for (
             const [key, child]
@@ -946,17 +939,11 @@ class OpenClawProvider extends Provider {
             )
         ) {
 
-            if (
-                key === "images"
-            ) {
-
-                continue;
-
-            }
 
             if (
                 child &&
-                typeof child === "object"
+                typeof child ===
+                    "object"
             ) {
 
                 this.collectMedia(
@@ -967,6 +954,49 @@ class OpenClawProvider extends Provider {
             }
 
         }
+
+    }
+
+    /*
+     * Normaliza mídias antes de devolver
+     * ao ChatPipeline.
+     */
+    normalizeMedia(media) {
+
+        if (
+            !Array.isArray(media)
+        ) {
+
+            return [];
+
+        }
+
+        return media
+            .filter(
+                item =>
+                    item &&
+                    item.type === "image" &&
+                    item.path
+            )
+            .map(
+                item => ({
+
+                    type:
+                        "image",
+
+                    path:
+                        item.path,
+
+                    url:
+                        item.url ||
+                        null,
+
+                    mimeType:
+                        item.mimeType ||
+                        "image/jpeg"
+
+                })
+            );
 
     }
 

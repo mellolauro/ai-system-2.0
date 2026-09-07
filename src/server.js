@@ -3,388 +3,197 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const expressLayouts = require("express-ejs-layouts");
-
+const os = require("os");
 const prisma = require("./prisma");
 const bootstrap = require("./bootstrap");
 
-const {
-    initTelegram
-} = require("./channels/telegram");
-
 const app = express();
 
-// ====================================================
-// MIDDLEWARES
-// ====================================================
+/*
+ * Helper para obter o IP de rede dinamicamente
+ */
+function getNetworkIp() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === "IPv4" && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return "127.0.0.1";
+}
+
+/*
+ * ============================================================
+ * MIDDLEWARES
+ * ============================================================
+ */
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ====================================================
-// VIEW ENGINE
-// ====================================================
+/*
+ * ============================================================
+ * VIEW ENGINE
+ * ============================================================
+ */
 
-app.set(
-    "view engine",
-    "ejs"
-);
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+app.use(expressLayouts);
+app.set("layout", "layout");
 
-app.set(
-    "views",
-    path.join(__dirname, "views")
-);
+/*
+ * ============================================================
+ * STATIC
+ * ============================================================
+ */
 
-app.use(
-    expressLayouts
-);
+app.use(express.static(path.join(__dirname, "../public")));
+app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
 
-app.set(
-    "layout",
-    "layout"
-);
+/*
+ * ============================================================
+ * ROUTES
+ * ============================================================
+ */
 
-// ====================================================
-// STATIC
-// ====================================================
+app.use("/dashboard", require("./routes/dashboard"));
+app.use("/products", require("./routes/products"));
+app.use("/tenants", require("./routes/tenants"));
+app.use("/users", require("./routes/users"));
+app.use("/orders", require("./routes/orders"));
+app.use("/api/chat", require("./routes/chat"));
 
-app.use(
-    express.static(
-        path.join(
-            __dirname,
-            "../public"
-        )
-    )
-);
+// 📍 Rotas de Entregadores e Rastreio GPS
+app.use("/api/drivers", require("./routes/driverRoutes"));
+app.use("/api/gps", require("./routes/gpsRoutes"));
 
-app.use(
-    "/uploads",
-    express.static(
-        path.join(
-            __dirname,
-            "../public/uploads"
-        )
-    )
-);
+/*
+ * ============================================================
+ * WHATSAPP INTERNAL
+ * ============================================================
+ */
 
-// ====================================================
-// ROUTES
-// ====================================================
+app.use("/internal/whatsapp", require("./routes/whatsapp"));
 
-app.use(
-    "/dashboard",
-    require("./routes/dashboard")
-);
+/*
+ * ============================================================
+ * ROOT
+ * ============================================================
+ */
 
-app.use(
-    "/products",
-    require("./routes/products")
-);
-
-app.use(
-    "/tenants",
-    require("./routes/tenants")
-);
-
-app.use(
-    "/users",
-    require("./routes/users")
-);
-
-app.use(
-    "/orders",
-    require("./routes/orders")
-);
-
-app.use(
-    "/api/chat",
-    require("./routes/chat")
-);
-
-// Rota de Webhooks para atualizações autônomas de rastreio/status
-app.use(
-    "/webhooks",
-    require("./routes/webhooks")
-);
-
-// ====================================================
-// ROOT
-// ====================================================
-
-app.get(
-    "/",
-    async (
-        req,
-        res,
-        next
-    ) => {
-
-        try {
-
-            const products =
-                await prisma.product.findMany({
-
-                    where: {
-                        active: true
-                    },
-
-                    include: {
-                        images: true
-                    },
-
-                    take: 6,
-
-                    orderBy: {
-                        createdAt: "desc"
-                    }
-
-                });
-
-            res.render(
-                "landing",
-                {
-                    layout: false,
-                    products
-                }
-            );
-
-        } catch (err) {
-
-            next(err);
-
-        }
-
-    }
-);
-
-// ====================================================
-// HEALTH
-// ====================================================
-
-app.get(
-    "/health",
-    (req, res) => {
-
-        res.json({
-
-            status: "ok",
-
-            service:
-                "AI-System 2.0",
-
-            version:
-                "1.0.0",
-
-            uptime:
-                process.uptime(),
-
-            timestamp:
-                new Date()
-
+app.get("/", async (req, res, next) => {
+    try {
+        const products = await prisma.product.findMany({
+            where: { active: true },
+            include: { images: true },
+            take: 6,
+            orderBy: { createdAt: "desc" }
         });
 
-    }
-);
-
-// ====================================================
-// GLOBAL ERROR
-// ====================================================
-
-app.use(
-    (
-        err,
-        req,
-        res,
-        next
-    ) => {
-
-        console.error(err);
-
-        if (res.headersSent) {
-
-            return next(err);
-
-        }
-
-        res.status(500).json({
-
-            success: false,
-
-            message:
-                err.message
-
+        res.render("landing", {
+            layout: false,
+            products
         });
-
+    } catch (err) {
+        next(err);
     }
-);
+});
 
-// ====================================================
-// START
-// ====================================================
+/*
+ * ============================================================
+ * HEALTH
+ * ============================================================
+ */
 
-const PORT =
-    process.env.PORT ||
-    3000;
+app.get("/health", (req, res) => {
+    res.json({
+        status: "ok",
+        service: "AI-System 2.0",
+        version: "1.0.0",
+        uptime: process.uptime(),
+        timestamp: new Date()
+    });
+});
+
+/*
+ * ============================================================
+ * ERROR HANDLER
+ * ============================================================
+ */
+
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).json({
+        success: false,
+        message: err.message
+    });
+});
+
+/*
+ * ============================================================
+ * START
+ * ============================================================
+ */
+
+const PORT = process.env.PORT || 3000;
+const HOST_IP = process.env.HOST_IP || getNetworkIp();
 
 async function start() {
-
     try {
-
         console.log("");
+        console.log("======================================");
+        console.log(" AI-System 2.0");
+        console.log("======================================");
 
-        console.log(
-            "======================================"
-        );
-
-        console.log(
-            " AI-System 2.0"
-        );
-
-        console.log(
-            "======================================"
-        );
-
-        /*
-         * ============================================
-         * 1. DATABASE
-         * ============================================
-         */
-
-        await prisma.$connect();
-
-        console.log(
-            "✓ Banco conectado"
-        );
-
-        /*
-         * ============================================
-         * 2. FRAMEWORK / BOOTSTRAP
-         * ============================================
-         */
-
-        await bootstrap();
-
-        console.log(
-            "✓ Framework carregado"
-        );
-
-        /*
-         * ============================================
-         * 3. TELEGRAM
-         * ============================================
-         */
-
-        initTelegram();
-
-        /*
-         * ============================================
-         * 4. HTTP SERVER
-         * ============================================
-         */
-
-        app.listen(
-            PORT,
-            "0.0.0.0",
-            () => {
-
-                console.log("");
-
-                console.log(
-                    `🚀 HTTP Server iniciado na porta ${PORT}`
-                );
-
-                console.log(
-                    `🚀 Acesso Local: http://localhost:${PORT}`
-                );
-
-                console.log(
-                    `🚀 Acesso via Rede: http://192.168.1.17:${PORT}`
-                );
-
-                console.log("");
-
-            }
-        );
-
-    } catch (err) {
-
-        console.error(
-            "❌ Falha ao iniciar AI-System:"
-        );
-
-        console.error(err);
-
-        try {
-
-            await prisma.$disconnect();
-
-        } catch (disconnectError) {
-
-            console.error(
-                "Erro ao desconectar do banco:",
-                disconnectError
-            );
-
+        if (!process.env.AI_SYSTEM_INTERNAL_TOKEN) {
+            console.warn("⚠️ AI_SYSTEM_INTERNAL_TOKEN não configurado.");
+        } else {
+            console.log("✓ Token interno configurado");
         }
 
-        process.exit(1);
+        await prisma.$connect();
+        console.log("✓ Banco conectado");
 
-    }
+        await bootstrap();
+        console.log("✓ Framework carregado");
 
-}
-
-// ====================================================
-// SHUTDOWN
-// ====================================================
-
-process.on(
-    "SIGINT",
-    shutdown
-);
-
-process.on(
-    "SIGTERM",
-    shutdown
-);
-
-let shuttingDown = false;
-
-async function shutdown() {
-
-    if (shuttingDown) {
-
-        return;
-
-    }
-
-    shuttingDown = true;
-
-    console.log("");
-
-    console.log(
-        "Encerrando aplicação..."
-    );
-
-    try {
-
-        await prisma.$disconnect();
-
-        console.log(
-            "✓ Banco desconectado"
-        );
-
+        app.listen(PORT, "0.0.0.0", () => {
+            console.log("");
+            console.log(`🚀 HTTP Server iniciado na porta ${PORT}`);
+            console.log(`🚀 Acesso Local: http://localhost:${PORT}`);
+            console.log(`🚀 Acesso via Rede: http://${HOST_IP}:${PORT}`);
+            console.log("");
+        });
     } catch (err) {
-
-        console.error(
-            "Erro ao desconectar banco:",
-            err
-        );
-
-    } finally {
-
-        process.exit(0);
-
+        console.error(err);
+        process.exit(1);
     }
-
 }
 
 start();
+
+/*
+ * ============================================================
+ * SHUTDOWN
+ * ============================================================
+ */
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+
+async function shutdown() {
+    console.log("");
+    console.log("Encerrando aplicação...");
+
+    try {
+        await prisma.$disconnect();
+        console.log("✓ Banco desconectado");
+    } catch (error) {
+        console.error("Erro ao desconectar banco:", error.message);
+    }
+
+    process.exit(0);
+}

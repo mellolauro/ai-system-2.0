@@ -12,7 +12,8 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.19.2",
-    "axios": "^1.13.6",
+    "@tavily/core": "^0.7.9",
+    "axios": "^1.20.0",
     "dotenv": "^17.3.1",
     "ejs": "^4.0.1",
     "express": "^5.2.1",
@@ -23,6 +24,7 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "typescript": "^7.0.2"
   }
 }

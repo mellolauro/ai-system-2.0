@@ -74,22 +74,36 @@ router.get("/", async (req, res, next) => {
 // ==========================================
 router.get("/view/:id", async (req, res, next) => {
   try {
-    const order = await prisma.order.findUnique({
-      where: { id: req.params.id },
-      include: {
-        user: true,
-        tenant: true,
-        items: {
-          include: { product: true }
+    const [order, drivers] = await Promise.all([
+      prisma.order.findUnique({
+        where: { id: req.params.id },
+        include: {
+          user: true,
+          tenant: true,
+          deliveries: {
+            include: { driver: true }
+          },
+          items: {
+            include: { product: true }
+          }
         }
-      }
-    });
+      }),
+      prisma.driver.findMany({ 
+        where: { active: true },
+        orderBy: { name: "asc" } 
+      })
+    ]);
 
     if (!order) {
       return res.status(404).send("Pedido não encontrado");
     }
 
-    res.render("order-view", { order });
+    // Extrai a última entrega atribuída ao pedido
+    const currentDelivery = order.deliveries && order.deliveries.length > 0 
+      ? order.deliveries[order.deliveries.length - 1] 
+      : null;
+
+    res.render("order-view", { order, drivers, currentDelivery });
   } catch (err) {
     next(err);
   }
@@ -144,9 +158,8 @@ router.get("/new", async (req, res, next) => {
 router.post("/update-status/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    let { status, paymentStatus, trackingCode, carrier, notifyClient, cancelReason } = req.body;
+    let { status, paymentStatus, trackingCode, carrier, driverId, notifyClient, cancelReason } = req.body;
 
-    // Trata inconsistência de digitação do Enum de Cancelado
     if (status === "CANCELED") {
       status = "CANCELLED";
     }
@@ -166,6 +179,28 @@ router.post("/update-status/:id", async (req, res, next) => {
       },
       include: { user: true }
     });
+
+    if (driverId) {
+      const existingDelivery = await prisma.delivery.findFirst({
+        where: { orderId: id }
+      });
+
+      if (existingDelivery) {
+        await prisma.delivery.update({
+          where: { id: existingDelivery.id },
+          data: { driverId, status: status || "PENDING" }
+        });
+      } else {
+        await prisma.delivery.create({
+          data: {
+            orderId: id,
+            driverId,
+            status: status || "PENDING",
+            tenantId: updatedOrder.tenantId
+          }
+        });
+      }
+    }
 
     if (notifyClient === "on" || notifyClient === "true") {
       await sendNotification(updatedOrder.user, updatedOrder, trackingCode);

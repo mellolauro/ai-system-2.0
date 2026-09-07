@@ -1,5 +1,4 @@
-const AgentRegistry =
-    require("../core/AgentRegistry");
+const AgentRegistry = require("../core/AgentRegistry");
 
 class AgentRouter {
 
@@ -14,31 +13,12 @@ class AgentRouter {
          * ==========================================
          * CONTEXTO ADMINISTRATIVO EXPLÍCITO
          * ==========================================
-         *
-         * O usuário precisa ser ADMIN e a requisição
-         * precisa solicitar o contexto admin.
          */
-
-        if (
-            agentContext ===
-            "admin"
-        ) {
-
-            if (
-                user?.role !==
-                "ADMIN"
-            ) {
-
-                throw new Error(
-                    "Usuário não possui permissão administrativa."
-                );
-
+        if (agentContext === "admin") {
+            if (user?.role !== "ADMIN") {
+                throw new Error("Usuário não possui permissão administrativa.");
             }
-
-            return this.getAgent(
-                "admin"
-            );
-
+            return this.getAgent("admin");
         }
 
         /*
@@ -46,254 +26,104 @@ class AgentRouter {
          * CONTEXTO NORMAL DO CLIENTE
          * ==========================================
          */
-
-        if (
-            !message ||
-            typeof message !==
-            "string"
-        ) {
-
-            return this.resolveSessionAgent(
-                session
-            );
-
+        if (!message || typeof message !== "string") {
+            return this.resolveSessionAgent(session);
         }
 
-        const text =
-            message
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(
-                    /[\u0300-\u036f]/g,
-                    ""
-                );
+        const text = message
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
 
         /*
          * ==========================================
-         * 1. CANCELAMENTO DE PEDIDO
+         * 1. CANCELAMENTO, DÚVIDAS E PÓS-VENDA (SUPPORT)
          * ==========================================
-         *
-         * Deve ocorrer ANTES da regra genérica
-         * que contém a palavra "pedido".
-         *
-         * Assim:
-         *
-         * "Qual o status do meu pedido?"
-         *    -> sales
-         *
-         * "Quero cancelar meu pedido"
-         *    -> support
+         * Captura problemas, cancelamentos, status de 
+         * pedidos e atendimento técnico antes de Vendas.
          */
+        const isSupportOrPostSales = this.matches(text, [
+            // Cancelamentos / Desistências
+            "cancelar", "cancele", "cancelamento", "desistir",
+            
+            // Pós-venda / Status / Trocas
+            "status", "onde esta", "rastreio", "rastrear", "entrega",
+            "atraso", "troca", "devolucao", "devolver", "garantia",
+            
+            // Problemas Técnicos / Reclamações
+            "erro", "falha", "bug", "suporte", "nao funciona",
+            "problema", "defeito", "ajuda"
+        ]);
 
-        if (
-            this.matches(
-                text,
-                [
-
-                    "cancelar pedido",
-
-                    "cancele o pedido",
-
-                    "cancelamento do pedido",
-
-                    "cancelamento de pedido",
-
-                    "quero cancelar",
-
-                    "quero cancelar meu pedido",
-
-                    "quero cancelar o pedido",
-
-                    "desistir do pedido",
-
-                    "desistir da compra",
-
-                    "cancelar minha compra",
-
-                    "cancelar o pedido"
-
-                ]
-            )
-        ) {
-
-            return this.getAgent(
-                "support"
-            );
-
+        if (isSupportOrPostSales) {
+            return this.getAgent("support");
         }
 
         /*
          * ==========================================
-         * 2. INTENÇÕES DE DADOS / ANALYTICS
+         * 2. INTENÇÕES DE DADOS / ANALYTICS (AI DATA)
          * ==========================================
          */
+        const isDataOrAnalytics = this.matches(text, [
+            "dashboard", "grafico", "indicador", "indicadores",
+            "relatorio", "analytics", "metricas", "faturamento"
+        ]);
 
-        if (
-            this.matches(
-                text,
-                [
-
-                    "dashboard",
-                    "grafico",
-                    "indicador",
-                    "indicadores",
-                    "relatorio",
-                    "analytics",
-                    "metricas",
-                    "faturamento"
-
-                ]
-            )
-        ) {
-
-            return this.getAgent(
-                "aiData"
-            );
-
+        if (isDataOrAnalytics) {
+            return this.getAgent("aiData");
         }
 
         /*
          * ==========================================
-         * 3. SUPORTE TÉCNICO
+         * 3. INTENÇÕES COMERCIAIS / VENDAS (SALES)
          * ==========================================
+         * Cobre intenções de compra para PRODUTOS e SERVIÇOS
+         * sem fixar nomes de itens específicos no código.
          */
+        const isSales = this.matches(text, [
+            // Ações de Compra / Contratação
+            "comprar", "compra", "contratar", "agendar", "agendamento",
+            "marcar", "reservar", "orcamento", "cotacao",
+            
+            // Termos Comerciais Genéricos
+            "preco", "valor", "quanto custa", "tabela", "catalogo",
+            "estoque", "disponivel", "disponibilidade", "carrinho",
+            "vender", "plano", "pacote", "servico", "servicos", "produto", "produtos"
+        ]);
 
-        if (
-            this.matches(
-                text,
-                [
-
-                    "erro",
-                    "falha",
-                    "bug",
-                    "suporte",
-                    "nao funciona",
-                    "problema tecnico",
-                    "problema técnico"
-
-                ]
-            )
-        ) {
-
-            return this.getAgent(
-                "support"
-            );
-
+        if (isSales) {
+            return this.getAgent("sales");
         }
 
         /*
          * ==========================================
-         * 4. VENDAS
+         * 4. SEM NOVA INTENÇÃO (MANTER SESSÃO/FALLBACK)
          * ==========================================
          */
-
-        if (
-            this.matches(
-                text,
-                [
-
-                    "comprar",
-                    "compra",
-                    "produto",
-                    "produtos",
-                    "pedido",
-                    "pedidos",
-                    "preco",
-                    "preço",
-                    "valor",
-                    "mouse",
-                    "mouses",
-                    "teclado",
-                    "monitor",
-                    "fone",
-                    "catalogo",
-                    "catálogo",
-                    "estoque",
-                    "disponivel",
-                    "disponíveis",
-                    "carrinho",
-                    "vender"
-
-                ]
-            )
-        ) {
-
-            return this.getAgent(
-                "sales"
-            );
-
-        }
-
-        /*
-         * ==========================================
-         * 5. SEM NOVA INTENÇÃO
-         * ==========================================
-         */
-
-        return this.resolveSessionAgent(
-            session
-        );
-
+        return this.resolveSessionAgent(session);
     }
 
-    resolveSessionAgent(
-        session
-    ) {
-
-        if (
-            session &&
-            session.agent &&
-            AgentRegistry.has(
-                session.agent
-            )
-        ) {
-
-            return AgentRegistry.get(
-                session.agent
-            );
-
+    resolveSessionAgent(session) {
+        if (session && session.agent && AgentRegistry.has(session.agent)) {
+            return AgentRegistry.get(session.agent);
         }
 
-        return this.getAgent(
-            "fallback"
-        );
-
+        return this.getAgent("fallback");
     }
 
     getAgent(id) {
-
-        const agent =
-            AgentRegistry.get(
-                id
-            );
+        const agent = AgentRegistry.get(id);
 
         if (!agent) {
-
-            throw new Error(
-                `Agent "${id}" não encontrado.`
-            );
-
+            throw new Error(`Agent "${id}" não encontrado.`);
         }
 
         return agent;
-
     }
 
-    matches(
-        text,
-        keywords
-    ) {
-
-        return keywords.some(
-            keyword =>
-                text.includes(
-                    keyword
-                )
-        );
-
+    matches(text, keywords) {
+        return keywords.some(keyword => text.includes(keyword));
     }
-
 }
 
-module.exports =
-    new AgentRouter();
+module.exports = new AgentRouter();

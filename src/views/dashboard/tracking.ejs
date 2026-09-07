@@ -1,0 +1,96 @@
+<div class="space-y-6">
+  <!-- CABEÇALHO -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Rastreamento GPS em Tempo Real</h1>
+      <p class="text-sm text-slate-500">Acompanhe a movimentação e localização dos entregadores na frota.</p>
+    </div>
+
+    <% if (drivers && drivers.length > 0) { %>
+      <div class="w-full md:w-72">
+        <label for="driverSelect" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+          Selecione o Entregador
+        </label>
+        <select
+          id="driverSelect"
+          onchange="changeDriver(this.value)"
+          class="w-full bg-white border border-slate-300 text-slate-800 text-sm rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm outline-none"
+        >
+          <% drivers.forEach(driver => { %>
+            <option value="<%= driver.phone %>" <%= driver.phone === defaultDriverPhone ? 'selected' : '' %>>
+              🛵 <%= driver.name %> (<%= driver.phone %>)
+            </option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- CONTAINER DO MAPA -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+    <div id="dashboard-map" class="h-[600px] w-full z-10"></div>
+  </div>
+</div>
+
+<!-- Leaflet CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  let currentPhone = "<%= defaultDriverPhone %>";
+  let map, marker;
+
+  // Inicializa o mapa centralizado
+  map = L.map('dashboard-map').setView([-22.7561, -43.4602], 15);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  const driverIcon = L.icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2972/2972531.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -15]
+  });
+
+  async function updatePosition() {
+    if (!currentPhone) return;
+
+    try {
+      const res = await fetch(`/api/gps/location/${encodeURIComponent(currentPhone)}`);
+      const data = await res.json();
+
+      if (data.success && data.latitude && data.longitude) {
+        const pos = [data.latitude, data.longitude];
+
+        if (!marker) {
+          marker = L.marker(pos, { icon: driverIcon }).addTo(map);
+          marker.bindPopup("<b>Entregador Ativo</b><br>Em trânsito").openPopup();
+          map.setView(pos, 16);
+        } else {
+          marker.setLatLng(pos);
+          map.panTo(pos, { animate: true, duration: 1 });
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar coordenadas:", err);
+    }
+  }
+
+  function changeDriver(phone) {
+    currentPhone = phone;
+    if (marker) {
+      map.removeLayer(marker);
+      marker = null;
+    }
+    updatePosition();
+  }
+
+  // Atualização contínua a cada 3s
+  if (currentPhone) {
+    updatePosition();
+    setInterval(updatePosition, 3000);
+  }
+</script>

@@ -1,197 +1,222 @@
-<div class="max-w-4xl mx-auto space-y-6">
-  <!-- Topo com Navegação e Ações -->
-  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+
+  <!-- CABEÇALHO DA PÁGINA -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
-      <a href="/orders" class="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1.5 mb-2">
-        <i class="fas fa-arrow-left text-xs"></i> Voltar aos Pedidos
+      <a href="/orders" class="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium mb-1">
+        <i class="fas fa-arrow-left"></i> Voltar aos Pedidos
       </a>
-      <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
-        Pedido #<%= order.id.slice(-8).toUpperCase() %>
+      <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        Pedido #<%= order.id ? order.id.slice(-8).toUpperCase() : '' %>
       </h1>
-      <p class="text-xs text-slate-400 mt-0.5">Criado em <%= new Date(order.createdAt).toLocaleString('pt-BR') %></p>
+      <p class="text-xs text-slate-500">
+        Criado em <%= new Date(order.createdAt).toLocaleString('pt-BR') %>
+      </p>
     </div>
 
     <div class="flex items-center gap-3">
-      <a href="/orders/print/<%= order.id %>" target="_blank" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-sm transition flex items-center gap-2 border border-slate-300">
-        <i class="fas fa-print"></i> Imprimir Recibo
+      <a href="/orders/print/<%= order.id %>" target="_blank" class="inline-flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm transition-all shadow-sm">
+        <i class="fas fa-print text-slate-500"></i> Imprimir Recibo
       </a>
     </div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+  <!-- CONTEÚDO PRINCIPAL (2 COLUNAS) -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    <!-- Coluna Esquerda: Itens do Pedido (2 Colunas) -->
-    <div class="md:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
-      <h2 class="text-base font-bold text-slate-800 border-b border-slate-100 pb-3">Itens do Pedido</h2>
+    <!-- COLUNA ESQUERDA: ITENS DO PEDIDO E TOTAIS -->
+    <div class="lg:col-span-2 space-y-6">
 
-      <div class="divide-y divide-slate-100">
-        <% if (order.items && order.items.length > 0) { %>
-          <% order.items.forEach(item => { %>
-            <div class="py-3 flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs border">
-                  <%= item.quantity %>x
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+          <h2 class="text-md font-bold text-slate-800">Itens do Pedido</h2>
+          <span class="text-xs bg-slate-100 text-slate-600 font-semibold px-2.5 py-1 rounded-full">
+            <%= order.items ? order.items.length : 0 %> <%= (order.items && order.items.length === 1) ? 'item' : 'itens' %>
+          </span>
+        </div>
+
+        <div class="divide-y divide-slate-100">
+          <% if (order.items && order.items.length > 0) { %>
+            <% order.items.forEach(item => { %>
+              <div class="p-4 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 font-bold text-xs">
+                    <i class="fas fa-box text-base"></i>
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800"><%= item.product ? item.product.name : 'Produto Indisponível' %></p>
+                    <p class="text-xs text-slate-500">Qtd: <%= item.quantity %> x R$ <%= Number(item.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></p>
+                  </div>
                 </div>
-                <div>
-                  <h3 class="font-semibold text-sm text-slate-800">
-                    <%= item.productName || (item.product ? item.product.name : 'Produto') %>
-                  </h3>
-                  <p class="text-xs text-slate-400">R$ <%= item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %> un.</p>
+                <div class="text-right">
+                  <p class="text-sm font-bold text-slate-800">
+                    R$ <%= Number((item.price || 0) * (item.quantity || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %>
+                  </p>
                 </div>
               </div>
-              <span class="font-bold text-sm text-slate-800">
-                R$ <%= (item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %>
-              </span>
+            <% }) %>
+          <% } else { %>
+            <div class="p-8 text-center text-slate-400 text-sm">
+              Nenhum item registrado.
             </div>
-          <% }) %>
+          <% } %>
+        </div>
+
+        <!-- CÁLCULO DE VALORES -->
+        <%
+          let subtotal = 0;
+          if (order.items && order.items.length > 0) {
+            subtotal = order.items.reduce((acc, curr) => acc + (Number(curr.price || 0) * (curr.quantity || 1)), 0);
+          } else {
+            subtotal = Number(order.total || 0);
+          }
+          let freight = Number(order.freight || 0);
+          let total = Number(order.total || (subtotal + freight));
+        %>
+
+        <div class="bg-slate-50 p-5 border-t border-slate-100 space-y-2 text-sm">
+          <div class="flex justify-between text-slate-600">
+            <span>Subtotal</span>
+            <span class="font-medium text-slate-800">R$ <%= subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></span>
+          </div>
+          <div class="flex justify-between text-slate-600">
+            <span>Frete</span>
+            <span class="font-medium <%= freight === 0 ? 'text-green-600' : 'text-slate-800' %>">
+              <%= freight === 0 ? 'Grátis' : 'R$ ' + freight.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %>
+            </span>
+          </div>
+          <div class="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-200">
+            <span>Total do Pedido</span>
+            <span class="text-blue-600">R$ <%= total.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COLUNA DIREITA: CLIENTE E FORMULÁRIO DE LOGÍSTICA & ENVIO -->
+    <div class="space-y-6">
+
+      <!-- CARD DADOS DO CLIENTE -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-3">
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Dados do Cliente</h3>
+        <% if (order.user) { %>
+          <div>
+            <p class="font-bold text-slate-800 text-sm"><%= order.user.name || 'Cliente sem nome' %></p>
+            <p class="text-xs text-slate-500"><%= order.user.email || 'Sem e-mail' %></p>
+            <% if (order.user.phone) { %>
+              <p class="text-xs text-slate-500 mt-1">📱 <%= order.user.phone %></p>
+            <% } %>
+            <% if (order.user.telegramId) { %>
+              <p class="text-xs text-blue-600 mt-1">✈️ Telegram ID: <%= order.user.telegramId %></p>
+            <% } %>
+          </div>
         <% } else { %>
-          <p class="text-sm text-slate-400 py-4 italic">Nenhum item registrado.</p>
+          <p class="text-xs text-slate-400">Cliente não associado</p>
         <% } %>
       </div>
 
-      <!-- Resumo Financeiro -->
-      <div class="pt-4 border-t border-slate-100 space-y-2">
-        <div class="flex justify-between text-sm text-slate-600">
-          <span>Subtotal</span>
-          <span>R$ <%= Number(order.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></span>
-        </div>
-        <div class="flex justify-between text-sm text-slate-600">
-          <span>Frete</span>
-          <span class="text-emerald-600 font-semibold">Grátis</span>
-        </div>
-        <div class="flex justify-between text-base font-bold text-slate-800 pt-2 border-t border-slate-200">
-          <span>Total do Pedido</span>
-          <span class="text-indigo-600">R$ <%= Number(order.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></span>
-        </div>
-      </div>
-    </div>
+      <!-- CARD LOGÍSTICA & ENVIO -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Logística & Envio</h3>
 
-    <!-- Coluna Direita: Status, Logística e Cliente (1 Coluna) -->
-    <div class="space-y-6">
+        <%
+          // Resolução segura do objeto de entrega e do ID do motorista
+          let activeDelivery = null;
+          if (typeof currentDelivery !== 'undefined' && currentDelivery) {
+            activeDelivery = currentDelivery;
+          } else if (order.delivery) {
+            activeDelivery = order.delivery;
+          } else if (order.deliveries && order.deliveries.length > 0) {
+            activeDelivery = order.deliveries[order.deliveries.length - 1];
+          }
 
-      <!-- Informações do Cliente -->
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
-        <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Dados do Cliente</h3>
-        <div>
-          <p class="font-bold text-slate-800 text-sm"><%= order.user ? order.user.name : 'N/A' %></p>
-          <p class="text-xs text-slate-500 mt-0.5"><%= order.user && order.user.email ? order.user.email : 'Sem e-mail' %></p>
-          <% if (order.user && order.user.phone) { %>
-            <p class="text-xs text-slate-500 mt-0.5"><i class="fab fa-whatsapp text-emerald-600 mr-1"></i> <%= order.user.phone %></p>
-          <% } %>
-          <% if (order.user && order.user.telegramId) { %>
-            <p class="text-xs text-slate-500 mt-0.5"><i class="fab fa-telegram text-blue-500 mr-1"></i> ID: <%= order.user.telegramId %></p>
-          <% } %>
-        </div>
-      </div>
-
-      <!-- Formulário Logística & Envio -->
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-        <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-4">Logística & Envio</h3>
+          let activeDriverId = activeDelivery ? activeDelivery.driverId : null;
+        %>
 
         <form action="/orders/update-status/<%= order.id %>" method="POST" class="space-y-4">
 
-          <!-- Status do Pedido -->
+          <!-- STATUS DO PEDIDO -->
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Status do Pedido</label>
-            <select id="statusSelect" name="status" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:border-blue-500" onchange="toggleCancelReason()">
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Status do Pedido</label>
+            <select name="status" class="w-full bg-white border border-slate-300 text-slate-800 text-sm rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
               <option value="PENDING" <%= order.status === 'PENDING' ? 'selected' : '' %>>PENDING (Pendente)</option>
-              <option value="PROCESSING" <%= order.status === 'PROCESSING' ? 'selected' : '' %>>PROCESSING (Em Separação)</option>
-              <option value="SHIPPED" <%= order.status === 'SHIPPED' ? 'selected' : '' %>>SHIPPED (Enviado)</option>
+              <option value="PROCESSING" <%= order.status === 'PROCESSING' ? 'selected' : '' %>>PROCESSING (Em Processamento)</option>
+              <option value="SHIPPED" <%= (order.status === 'SHIPPED' || order.status === 'SENT') ? 'selected' : '' %>>SHIPPED (Enviado)</option>
               <option value="DELIVERED" <%= order.status === 'DELIVERED' ? 'selected' : '' %>>DELIVERED (Entregue)</option>
-              <option value="CANCELLED" <%= order.status === 'CANCELLED' ? 'selected' : '' %>>CANCELLED (Cancelado)</option>
+              <option value="CANCELLED" <%= (order.status === 'CANCELLED' || order.status === 'CANCELED') ? 'selected' : '' %>>CANCELLED (Cancelado)</option>
             </select>
           </div>
 
-          <!-- Campo Dinâmico: Motivo do Cancelamento -->
-          <div id="cancelReasonBox" class="<%= order.status === 'CANCELLED' ? '' : 'hidden' %>">
-            <label class="block text-xs font-semibold text-red-600 mb-1">Motivo do Cancelamento</label>
-            <input 
-              type="text" 
-              name="cancelReason" 
-              maxLength="150"
-              value="<%= order.cancelReason || '' %>" 
-              placeholder="Ex: Peça indisponível, Cliente desistiu"
-              class="w-full px-3 py-2 border border-red-300 rounded-lg text-sm bg-red-50 focus:bg-white focus:outline-none focus:border-red-500"
-            />
-          </div>
-
-          <!-- Status do Pagamento -->
+          <!-- STATUS DO PAGAMENTO -->
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Status do Pagamento</label>
-            <select name="paymentStatus" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:border-blue-500">
-              <option value="PENDING" <%= order.paymentStatus === 'PENDING' ? 'selected' : '' %>>PENDING (Aguardando)</option>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Status do Pagamento</label>
+            <select name="paymentStatus" class="w-full bg-white border border-slate-300 text-slate-800 text-sm rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="PENDING" <%= order.paymentStatus === 'PENDING' ? 'selected' : '' %>>PENDING (Pendente)</option>
               <option value="PAID" <%= order.paymentStatus === 'PAID' ? 'selected' : '' %>>PAID (Pago)</option>
               <option value="REFUNDED" <%= order.paymentStatus === 'REFUNDED' ? 'selected' : '' %>>REFUNDED (Reembolsado)</option>
+              <option value="FAILED" <%= order.paymentStatus === 'FAILED' ? 'selected' : '' %>>FAILED (Falhou)</option>
             </select>
           </div>
 
-          <!-- Transportadora -->
+          <!-- SELEÇÃO DO ENTREGADOR RESPONSÁVEL -->
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Transportadora</label>
-            <input
-              type="text"
-              name="carrier"
-              value="<%= order.carrier || 'Correios' %>"
-              placeholder="Ex: Correios, Jadlog"
-              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-            />
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Entregador Responsável</label>
+            <select name="driverId" class="w-full bg-white border border-slate-300 text-slate-800 text-sm rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="">-- Nenhum / Sem Entregador --</option>
+              <% if (typeof drivers !== 'undefined' && drivers && drivers.length > 0) { %>
+                <% drivers.forEach(driver => { %>
+                  <option value="<%= driver.id %>" <%= (activeDriverId === driver.id) ? 'selected' : '' %>>
+                    🛵 <%= driver.name %> <%= driver.phone ? '(' + driver.phone + ')' : '' %>
+                  </option>
+                <% }) %>
+              <% } %>
+            </select>
           </div>
 
-          <!-- Código de Rastreio -->
+          <!-- TRANSPORTADORA -->
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Código de Rastreio</label>
-            <input
-              type="text"
-              name="trackingCode"
-              value="<%= order.trackingCode || '' %>"
-              placeholder="Ex: AA123456789BR"
-              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 font-mono uppercase"
-            />
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Transportadora</label>
+            <input type="text" name="carrier" value="<%= order.carrier || '' %>" placeholder="Ex: Logística Própria, Correios" class="w-full bg-white border border-slate-300 text-slate-800 text-sm rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
           </div>
 
-          <!-- Checkbox para notificar o cliente -->
-          <div class="flex items-center gap-2 pt-2">
-            <input
-              type="checkbox"
-              id="notifyClient"
-              name="notifyClient"
-              checked
-              class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-            >
-            <label for="notifyClient" class="text-xs text-slate-600 font-medium cursor-pointer">
+          <!-- CÓDIGO DE RASTREIO -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Código de Rastreio</label>
+            <input type="text" name="trackingCode" value="<%= order.trackingCode || '' %>" placeholder="Ex: TRK-1042BR" class="w-full bg-white border border-slate-300 text-slate-800 text-sm rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <!-- CHECKBOX NOTIFICAÇÃO -->
+          <div class="flex items-center gap-2 pt-1">
+            <input type="checkbox" id="notifyClient" name="notifyClient" value="true" checked class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+            <label for="notifyClient" class="text-xs text-slate-600 cursor-pointer">
               Notificar cliente (Telegram / WhatsApp)
             </label>
           </div>
 
-          <!-- Botão de Salvar -->
-          <button type="submit" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-colors shadow-sm">
+          <!-- BOTÃO ATUALIZAR -->
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-all shadow-sm">
             Atualizar Pedido
           </button>
         </form>
-      </div>
 
-      <!-- Ação: Ocultar Pedido da Listagem (Soft Delete) -->
-      <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
-        <form action="/orders/hide/<%= order.id %>" method="POST" onsubmit="return confirm('Ocultar este pedido da listagem principal? (Ele permanecerá no banco de dados para relatórios)');">
-          <button type="submit" class="w-full bg-white hover:bg-slate-100 text-slate-600 font-semibold py-2 px-3 rounded-lg text-xs border border-slate-300 transition flex items-center justify-center gap-2">
-            <i class="fas fa-eye-slash text-slate-400"></i> Ocultar Pedido da Lista
-          </button>
-        </form>
+        <!-- RESUMO DO ENTREGADOR ASSOCIADO -->
+        <% if (activeDelivery && activeDelivery.driver) { %>
+          <div class="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-center justify-between text-sm mt-4">
+            <div>
+              <p class="font-bold text-blue-900"><%= activeDelivery.driver.name %></p>
+              <p class="text-xs text-blue-700">📱 <%= activeDelivery.driver.phone || 'Sem telefone' %> | 🛵 <%= activeDelivery.driver.vehicle || 'Sem veículo' %></p>
+            </div>
+            <a href="/tracking" class="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1">
+              <i class="fas fa-map-marker-alt"></i> Ver no Mapa
+            </a>
+          </div>
+        <% } %>
+
       </div>
 
     </div>
 
   </div>
-</div>
 
-<script>
-  function toggleCancelReason() {
-    const select = document.getElementById('statusSelect');
-    const box = document.getElementById('cancelReasonBox');
-    if (select.value === 'CANCELLED') {
-      box.classList.remove('hidden');
-    } else {
-      box.classList.add('hidden');
-    }
-  }
-</script>
+</div>

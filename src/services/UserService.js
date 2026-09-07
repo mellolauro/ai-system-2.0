@@ -1,122 +1,68 @@
-const prisma =
-    require("../prisma");
+const prisma = require("../prisma");
 
 class UserService {
-
-    async getById({
-        tenantId,
-        userId
-    }) {
-
+    async getById({ tenantId, userId, name = null, role = "CUSTOMER" }) {
         if (!tenantId) {
-
-            throw new Error(
-                "tenantId é obrigatório."
-            );
-
+            throw new Error("tenantId é obrigatório.");
         }
 
         if (!userId) {
-
-            throw new Error(
-                "userId é obrigatório."
-            );
-
+            throw new Error("userId é obrigatório.");
         }
 
-        const user =
-            await prisma.user.findFirst({
+        let user = await prisma.user.findFirst({
+            where: {
+                id: userId,
+                tenantId
+            }
+        });
 
-                where: {
-
-                    id:
-                        userId,
-
-                    tenantId
-
+        // Auto-registro caso o usuário não exista no tenant atual
+        if (!user) {
+            user = await prisma.user.create({
+                data: {
+                    id: userId,
+                    tenantId,
+                    name: name || `Cliente ${userId.slice(-4)}`,
+                    role
                 }
-
             });
 
-        if (!user) {
-
-            throw new Error(
-                `Usuário "${userId}" não encontrado no tenant informado.`
-            );
-
+            console.log(`👤 Usuário "${userId}" auto-cadastrado no tenant "${tenantId}".`);
         }
 
         return user;
-
     }
 
-    async getByTelegramId({
-        telegramId
-    }) {
-
+    async getByTelegramId({ telegramId }) {
         if (!telegramId) {
-
-            throw new Error(
-                "telegramId é obrigatório."
-            );
-
+            throw new Error("telegramId é obrigatório.");
         }
 
         return prisma.user.findUnique({
-
             where: {
-
-                telegramId:
-                    String(
-                        telegramId
-                    )
-
+                telegramId: String(telegramId)
             },
-
             include: {
-
-                tenant:
-                    true
-
+                tenant: true
             }
-
         });
-
     }
 
-    async getByPhone({
-        phone
-    }) {
-
+    async getByPhone({ phone }) {
         if (!phone) {
-
-            throw new Error(
-                "phone é obrigatório."
-            );
-
+            throw new Error("phone é obrigatório.");
         }
 
         return prisma.user.findUnique({
-
             where: {
-
-                phone:
-                    String(phone)
-
+                phone: String(phone)
             },
-
             include: {
-
-                tenant:
-                    true
-
+                tenant: true
             }
-
         });
-
     }
-
 }
 
-module.exports =
-    new UserService();
+module.exports = new UserService();
