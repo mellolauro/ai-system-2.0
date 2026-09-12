@@ -6,5 +6,6 @@ module.exports = [
     "getOrder",
     "getLatestOrder",
     "checkoutCart",
-    "trackDelivery"
+    "trackDelivery",
+    "getDeliveryStatus"
 ];

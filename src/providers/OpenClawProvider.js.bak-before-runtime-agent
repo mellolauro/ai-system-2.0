@@ -801,22 +801,22 @@ class OpenClawProvider extends Provider {
         const agentMap = {
 
             sales:
-                "openclaw/runtime-agent",
+                "openclaw/vendas-agent",
 
             support:
-                "openclaw/runtime-agent",
+                "openclaw/suporte-agent",
 
             admin:
-                "openclaw/runtime-agent",
+                "openclaw/default",
 
             product:
-                "openclaw/runtime-agent",
+                "openclaw/default",
 
             aiData:
-                "openclaw/runtime-agent",
+                "openclaw/default",
 
             fallback:
-                "openclaw/runtime-agent"
+                "openclaw/default"
 
         };
 

@@ -335,20 +335,21 @@ router.post(
              */
             const {
 
-                externalUserId,
+                   externalUserId,
 
-                message,
+                   senderName,
 
-                accountId,
+                   message,
 
-                senderId,
+                   accountId,
 
-                sessionKey,
+                   senderId,
 
-                conversationId,
+                   sessionKey,
 
-                messageId
+                   conversationId,
 
+                   messageId
             } =
                 req.body || {};
 
@@ -408,6 +409,10 @@ router.post(
                     {
 
                         externalUserId,
+                        
+                        senderName:
+                            senderName ||
+                            null,
 
                         message,
 
@@ -449,7 +454,15 @@ router.post(
                     channel:
                         "whatsapp",
 
-                    externalUserId
+                    externalUserId,
+                   
+                    senderName:
+                        typeof senderName === "string" &&
+                        senderName.trim()
+                        
+                            ? senderName.trim()
+
+                            : null
 
                 });
 

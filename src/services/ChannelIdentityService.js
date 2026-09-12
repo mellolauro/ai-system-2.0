@@ -18,7 +18,8 @@ class ChannelIdentityService {
     async resolve({
         channel,
         externalUserId,
-        tenantId = null
+        tenantId = null,
+        senderName = null
     }) {
 
         if (!channel) {
@@ -45,6 +46,12 @@ class ChannelIdentityService {
         const normalizedExternalUserId =
             String(externalUserId)
                 .trim();
+
+        const normalizedSenderName =
+            typeof senderName ===
+                "string"
+                ? senderName.trim()
+                : "";
 
         if (!normalizedExternalUserId) {
 
@@ -141,8 +148,8 @@ class ChannelIdentityService {
 
             }
 
-            const user =
-                await prisma.user.findFirst({
+            let user =
+                await prisma.user.findUnique({
 
                     where: {
 
@@ -159,21 +166,220 @@ class ChannelIdentityService {
 
                 });
 
-            if (!user) {
+            /*
+             * ==========================================
+             * USUÁRIO JÁ CADASTRADO
+             * ==========================================
+             *
+             * Não alteramos automaticamente o nome
+             * do usuário existente com base no nome
+             * recebido do WhatsApp.
+             */
+            if (user) {
 
-                return null;
+                if (
+                    tenantId &&
+                    user.tenantId !==
+                        tenantId
+                ) {
+
+                    throw new Error(
+                        "Usuário do WhatsApp não pertence ao tenant informado."
+                    );
+
+                }
+
+                return {
+
+                    user,
+
+                    tenant:
+                        user.tenant
+
+                };
 
             }
 
-            if (
-                tenantId &&
-                user.tenantId !==
-                    tenantId
-            ) {
+            /*
+             * ==========================================
+             * NOVO CLIENTE WHATSAPP
+             * ==========================================
+             *
+             * Cada instalação do AI-System possui
+             * exatamente um tenant ativo.
+             *
+             * Se tenantId foi informado pelo chamador,
+             * usamos e validamos esse tenant.
+             *
+             * Caso contrário, exigimos exatamente
+             * um tenant ativo na instalação.
+             */
+            let tenant;
 
-                throw new Error(
-                    "Usuário do WhatsApp não pertence ao tenant informado."
+            if (tenantId) {
+
+                tenant =
+                    await prisma.tenant.findFirst({
+
+                        where: {
+
+                            id:
+                                tenantId,
+
+                            active:
+                                true
+
+                        }
+
+                    });
+
+                if (!tenant) {
+
+                    throw new Error(
+                        "Tenant informado não foi encontrado ou está inativo."
+                    );
+
+                }
+
+            } else {
+
+                const activeTenants =
+                    await prisma.tenant.findMany({
+
+                        where: {
+
+                            active:
+                                true
+
+                        },
+
+                        take:
+                            2
+
+                    });
+
+                if (
+                    activeTenants.length ===
+                    0
+                ) {
+
+                    throw new Error(
+                        "Nenhum tenant ativo foi encontrado para o WhatsApp."
+                    );
+
+                }
+
+                if (
+                    activeTenants.length >
+                    1
+                ) {
+
+                    throw new Error(
+                        "Mais de um tenant ativo foi encontrado. A instalação deve possuir apenas um tenant ativo."
+                    );
+
+                }
+
+                tenant =
+                    activeTenants[0];
+
+            }
+
+            /*
+             * ==========================================
+             * NOME DO NOVO CLIENTE
+             * ==========================================
+             *
+             * Quando o OpenClaw fornecer senderName,
+             * usamos o nome real do perfil WhatsApp.
+             *
+             * Caso contrário, utilizamos o fallback.
+             */
+            const userName =
+                normalizedSenderName ||
+                "Cliente WhatsApp";
+
+            /*
+             * ==========================================
+             * CRIA AUTOMATICAMENTE O CLIENTE
+             * ==========================================
+             */
+            try {
+
+                user =
+                    await prisma.user.create({
+
+                        data: {
+
+                            phone,
+
+                            name:
+                                userName,
+
+                            tenantId:
+                                tenant.id
+
+                        },
+
+                        include: {
+
+                            tenant:
+                                true
+
+                        }
+
+                    });
+
+                console.log(
+                    "[ChannelIdentityService] Novo usuário WhatsApp criado:",
+                    user.id,
+                    phone,
+                    user.name
                 );
+
+            } catch (error) {
+
+                /*
+                 * Proteção contra duas mensagens simultâneas
+                 * do mesmo número tentando cadastrar o usuário.
+                 *
+                 * P2002 = unique constraint do Prisma.
+                 */
+                if (
+                    error &&
+                    error.code ===
+                        "P2002"
+                ) {
+
+                    user =
+                        await prisma.user.findUnique({
+
+                            where: {
+
+                                phone
+
+                            },
+
+                            include: {
+
+                                tenant:
+                                    true
+
+                            }
+
+                        });
+
+                    if (!user) {
+
+                        throw error;
+
+                    }
+
+                } else {
+
+                    throw error;
+
+                }
 
             }
 
@@ -182,7 +388,8 @@ class ChannelIdentityService {
                 user,
 
                 tenant:
-                    user.tenant
+                    user.tenant ||
+                    tenant
 
             };
 
@@ -207,7 +414,7 @@ class ChannelIdentityService {
      *
      * +55 (11) 99999-9999
      * ↓
-     * +5511999999999
+     * 5511999999999
      */
     normalizePhone(
         phone
