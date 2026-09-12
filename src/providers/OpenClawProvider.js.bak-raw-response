@@ -212,28 +212,6 @@ class OpenClawProvider extends Provider {
 
         };
 
-        /*
-         * TESTE DIAGNÓSTICO:
-         *
-         * Usa uma identidade OpenClaw nova a cada execução do
-         * AI-System, mas mantém a mesma identidade durante todos
-         * os rounds de Tool Calling desta execução.
-         *
-         * Objetivo:
-         * verificar se o "user" persistente do OpenClaw está
-         * acumulando contexto/histórico entre requisições.
-         *
-         * IMPORTANTE:
-         * este ajuste é temporário para diagnóstico.
-         */
-        const openClawRequestUser =
-            `${this.buildSessionUser(session)}:request:${Date.now()}`;
-
-        console.log(
-            "[OpenClawProvider][REQUEST_USER]",
-            openClawRequestUser
-        );
-
         console.log(
             `[OpenClawProvider] 🚀 Agent: ${agent || "unknown"}`
         );
@@ -272,12 +250,10 @@ class OpenClawProvider extends Provider {
                 messages:
                     conversationMessages,
 
-                /*
-                 * Mantém a mesma sessão temporária em todos
-                 * os rounds desta execução.
-                 */
                 user:
-                    openClawRequestUser,
+                    this.buildSessionUser(
+                        session
+                    ),
 
                 stream: false
 
@@ -352,56 +328,6 @@ class OpenClawProvider extends Provider {
 
             try {
 
-                console.log(
-                    "[OpenClawProvider][CONTEXT_STATS]",
-                    JSON.stringify(
-                        {
-                            round,
-
-                            user:
-                                payload.user,
-
-                            messageCount:
-                                Array.isArray(
-                                    payload.messages
-                                )
-                                    ? payload.messages.length
-                                    : 0,
-
-                            messages:
-                                Array.isArray(
-                                    payload.messages
-                                )
-                                    ? payload.messages.map(
-                                        (message, index) => ({
-                                            index,
-
-                                            role:
-                                                message?.role,
-
-                                            contentLength:
-                                                typeof message?.content ===
-                                                "string"
-                                                    ? message.content.length
-                                                    : JSON.stringify(
-                                                        message?.content ?? ""
-                                                    ).length,
-
-                                            toolCalls:
-                                                Array.isArray(
-                                                    message?.tool_calls
-                                                )
-                                                    ? message.tool_calls.length
-                                                    : 0
-                                        })
-                                    )
-                                    : []
-                        },
-                        null,
-                        2
-                    )
-                );
-
                 const response =
                     await this.http.post(
                         "/chat/completions",
@@ -410,15 +336,6 @@ class OpenClawProvider extends Provider {
 
                 const data =
                     response.data;
-
-                console.log(
-                    "[OpenClawProvider][RAW_RESPONSE]",
-                    JSON.stringify(
-                        data,
-                        null,
-                        2
-                    )
-                );
 
                 const choice =
                     data
@@ -1021,6 +938,7 @@ class OpenClawProvider extends Provider {
                 value
             )
         ) {
+
 
             if (
                 child &&

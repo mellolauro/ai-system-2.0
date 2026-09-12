@@ -9,30 +9,24 @@ class OrderService {
     }) {
 
         if (!tenantId) {
-
             throw new Error(
                 "tenantId é obrigatório."
             );
-
         }
 
         if (!userId) {
-
             throw new Error(
                 "userId é obrigatório."
             );
-
         }
 
         if (
             !Array.isArray(items) ||
             items.length === 0
         ) {
-
             throw new Error(
                 "O pedido deve possuir pelo menos um item."
             );
-
         }
 
         /*
@@ -42,11 +36,9 @@ class OrderService {
             items.map(item => {
 
                 if (!item?.productId) {
-
                     throw new Error(
                         "Cada item deve possuir productId."
                     );
-
                 }
 
                 const quantity =
@@ -56,11 +48,9 @@ class OrderService {
                     !Number.isInteger(quantity) ||
                     quantity < 1
                 ) {
-
                     throw new Error(
                         `Quantidade inválida para o produto ${item.productId}.`
                     );
-
                 }
 
                 return {
@@ -299,274 +289,274 @@ class OrderService {
         );
 
     }
-
+    
     async checkoutCart({
-        tenantId,
-        userId
-    }) {
-
-        if (!tenantId) {
-
-            throw new Error(
-                "tenantId é obrigatório."
-            );
-
-        }
-
-        if (!userId) {
-
-            throw new Error(
-                "userId é obrigatório."
-            );
-
-        }
-
-        /*
-         * Toda a operação acontece dentro
-         * de uma única transação:
-         *
-         * Cart
-         *   ↓
-         * CartItem
-         *   ↓
-         * Order
-         *   ↓
-         * OrderItem
-         *   ↓
-         * Cart = checked_out
-         */
-        const result =
-            await prisma.$transaction(
-                async tx => {
-
-                    const cart =
-                        await tx.cart.findFirst({
-
-                            where: {
-
-                                userId,
-
-                                tenantId,
-
-                                status:
-                                    "active"
-
-                            },
-
-                            include: {
-
-                                items: {
-
-                                    include: {
-
-                                        product:
-                                            true
-
-                                    }
-
-                                }
-
-                            }
-
-                        });
-
-                    if (!cart) {
-
-                        throw new Error(
-                            "Nenhum carrinho ativo encontrado."
-                        );
-
-                    }
-
-                    if (
-                        !cart.items ||
-                        cart.items.length === 0
-                    ) {
-
-                        throw new Error(
-                            "O carrinho está vazio."
-                        );
-
-                    }
-
-                    /*
-                     * Validação dos produtos
-                     * e montagem dos itens do pedido.
-                     */
-                    const orderItems =
-                        cart.items.map(
-                            item => {
-
-                                const product =
-                                    item.product;
-
-                                if (!product) {
-
-                                    throw new Error(
-                                        `Produto não encontrado para o item ${item.id}.`
-                                    );
-
-                                }
-
-                                if (!product.active) {
-
-                                    throw new Error(
-                                        `O produto "${product.name}" está inativo.`
-                                    );
-
-                                }
-
-                                if (
-                                    product.stock <
-                                    item.quantity
-                                ) {
-
-                                    throw new Error(
-                                        `Estoque insuficiente para "${product.name}". Disponível: ${product.stock}. Solicitado: ${item.quantity}.`
-                                    );
-
-                                }
-
-                                return {
-
-                                    productId:
-                                        product.id,
-
-                                    quantity:
-                                        item.quantity,
-
-                                    price:
-                                        product.price
-
-                                };
-
-                            }
-                        );
-
-                    /*
-                     * O total é calculado exclusivamente
-                     * a partir dos preços atuais do banco.
-                     */
-                    const total =
-                        orderItems.reduce(
-                            (
-                                sum,
-                                item
-                            ) => {
-
-                                return (
-                                    sum +
-                                    (
-                                        item.price *
-                                        item.quantity
-                                    )
-                                );
-
-                            },
-                            0
-                        );
-
-                    /*
-                     * Cria o pedido e seus itens.
-                     */
-                    const order =
-                        await tx.order.create({
-
-                            data: {
-
-                                tenantId,
-
-                                userId,
-
-                                status:
-                                    "PENDING",
-
-                                paymentStatus:
-                                    "PENDING",
-
-                                total,
-
-                                items: {
-
-                                    create:
-                                        orderItems
-
-                                }
-
-                            },
-
-                            include: {
-
-                                items: {
-
-                                    include: {
-
-                                        product:
-                                            true
-
-                                    }
-
-                                }
-
-                            }
-
-                        });
-
-                    /*
-                     * Fecha o carrinho somente depois
-                     * que o pedido foi criado com sucesso.
-                     */
-                    const updatedCart =
-                        await tx.cart.update({
-
-                            where: {
-
-                                id:
-                                    cart.id
-
-                            },
-
-                            data: {
-
-                                status:
-                                    "checked_out"
-
-                            }
-
-                        });
-
-                    return {
-
-                        order,
-
-                        cart:
-                            updatedCart
-
-                    };
-
-                }
-            );
-
-        return {
-
-            order:
-                this.serializeOrder(
-                    result.order
-                ),
-
-            cart: {
-
-                id:
-                    result.cart.id,
-
-                status:
-                    result.cart.status
-
-            }
-
-        };
+    tenantId,
+    userId
+}) {
+
+    if (!tenantId) {
+
+        throw new Error(
+            "tenantId é obrigatório."
+        );
 
     }
+
+    if (!userId) {
+
+        throw new Error(
+            "userId é obrigatório."
+        );
+
+    }
+
+    /*
+     * Toda a operação acontece dentro
+     * de uma única transação:
+     *
+     * Cart
+     *   ↓
+     * CartItem
+     *   ↓
+     * Order
+     *   ↓
+     * OrderItem
+     *   ↓
+     * Cart = checked_out
+     */
+    const result =
+        await prisma.$transaction(
+            async tx => {
+
+                const cart =
+                    await tx.cart.findFirst({
+
+                        where: {
+
+                            userId,
+
+                            tenantId,
+
+                            status:
+                                "active"
+
+                        },
+
+                        include: {
+
+                            items: {
+
+                                include: {
+
+                                    product:
+                                        true
+
+                                }
+
+                            }
+
+                        }
+
+                    });
+
+                if (!cart) {
+
+                    throw new Error(
+                        "Nenhum carrinho ativo encontrado."
+                    );
+
+                }
+
+                if (
+                    !cart.items ||
+                    cart.items.length === 0
+                ) {
+
+                    throw new Error(
+                        "O carrinho está vazio."
+                    );
+
+                }
+
+                /*
+                 * Validação dos produtos
+                 * e montagem dos itens do pedido.
+                 */
+                const orderItems =
+                    cart.items.map(
+                        item => {
+
+                            const product =
+                                item.product;
+
+                            if (!product) {
+
+                                throw new Error(
+                                    `Produto não encontrado para o item ${item.id}.`
+                                );
+
+                            }
+
+                            if (!product.active) {
+
+                                throw new Error(
+                                    `O produto "${product.name}" está inativo.`
+                                );
+
+                            }
+
+                            if (
+                                product.stock <
+                                item.quantity
+                            ) {
+
+                                throw new Error(
+                                    `Estoque insuficiente para "${product.name}". Disponível: ${product.stock}. Solicitado: ${item.quantity}.`
+                                );
+
+                            }
+
+                            return {
+
+                                productId:
+                                    product.id,
+
+                                quantity:
+                                    item.quantity,
+
+                                price:
+                                    product.price
+
+                            };
+
+                        }
+                    );
+
+                /*
+                 * O total é calculado exclusivamente
+                 * a partir dos preços atuais do banco.
+                 */
+                const total =
+                    orderItems.reduce(
+                        (
+                            sum,
+                            item
+                        ) => {
+
+                            return (
+                                sum +
+                                (
+                                    item.price *
+                                    item.quantity
+                                )
+                            );
+
+                        },
+                        0
+                    );
+
+                /*
+                 * Cria o pedido e seus itens.
+                 */
+                const order =
+                    await tx.order.create({
+
+                        data: {
+
+                            tenantId,
+
+                            userId,
+
+                            status:
+                                "PENDING",
+
+                            paymentStatus:
+                                "PENDING",
+
+                            total,
+
+                            items: {
+
+                                create:
+                                    orderItems
+
+                            }
+
+                        },
+
+                        include: {
+
+                            items: {
+
+                                include: {
+
+                                    product:
+                                        true
+
+                                }
+
+                            }
+
+                        }
+
+                    });
+
+                /*
+                 * Fecha o carrinho somente depois
+                 * que o pedido foi criado com sucesso.
+                 */
+                const updatedCart =
+                    await tx.cart.update({
+
+                        where: {
+
+                            id:
+                                cart.id
+
+                        },
+
+                        data: {
+
+                            status:
+                                "checked_out"
+
+                        }
+
+                    });
+
+                return {
+
+                    order,
+
+                    cart:
+                        updatedCart
+
+                };
+
+            }
+        );
+
+    return {
+
+        order:
+            this.serializeOrder(
+                result.order
+            ),
+
+        cart: {
+
+            id:
+                result.cart.id,
+
+            status:
+                result.cart.status
+
+        }
+
+    };
+
+}
 
     async getOrder({
         tenantId,
@@ -617,15 +607,7 @@ class OrderService {
 
                         include: {
 
-                            product: {
-
-                                include: {
-
-                                    images: true
-
-                                }
-
-                            }
+                            product: true
 
                         }
 
@@ -692,8 +674,7 @@ class OrderService {
 
                         include: {
 
-                            product:
-                                true
+                            product: true
 
                         }
 
@@ -772,8 +753,7 @@ class OrderService {
 
                         include: {
 
-                            product:
-                                true
+                            product: true
 
                         }
 
@@ -788,82 +768,73 @@ class OrderService {
         );
 
     }
-
     async getLatestOrder({
         tenantId,
         userId
     }) {
 
-        if (!tenantId) {
+       if (!tenantId) {
 
-            throw new Error(
-                "tenantId é obrigatório."
-            );
+          throw new Error(
+              "tenantId é obrigatório."
+          );
 
-        }
+       }
 
-        if (!userId) {
+       if (!userId) {
 
-            throw new Error(
-                "userId é obrigatório."
-            );
+          throw new Error(
+              "userId é obrigatório."
+          );
 
-        }
+       }
 
-        const order =
-            await prisma.order.findFirst({
+       const order =
+           await prisma.order.findFirst({
 
-                where: {
+               where: {
+ 
+                   tenantId,
 
-                    tenantId,
+                   userId
 
-                    userId
+              },
 
-                },
+              orderBy: {
 
-                orderBy: {
+                  createdAt: "desc"
 
-                    createdAt: "desc"
+              },
 
-                },
+              include: {
 
-                include: {
+                  items: {
 
-                    items: {
+                      include: {
 
-                        include: {
+                          product: true
 
-                            product: {
+                      }
 
-                                include: {
+                  }
 
-                                    images: true
+              }
 
-                                }
+          });
 
-                            }
+       if (!order) {
 
-                        }
+          return null;
 
-                    }
+       }
 
-                }
+       return this.serializeOrder(
+           order
+       );
 
-            });
-
-        if (!order) {
-
-            return null;
-
-        }
-
-        return this.serializeOrder(
-            order
-        );
-
-    }
-
-    async shipOrder({
+   }
+ 
+   async shipOrder({
         tenantId,
         userId,
         orderId,
@@ -942,8 +913,7 @@ class OrderService {
 
                         include: {
 
-                            product:
-                                true
+                            product: true
 
                         }
 
@@ -1010,8 +980,7 @@ class OrderService {
 
                         include: {
 
-                            product:
-                                true
+                            product: true
 
                         }
 
@@ -1084,8 +1053,7 @@ class OrderService {
 
                         include: {
 
-                            product:
-                                true
+                            product: true
 
                         }
 
@@ -1378,19 +1346,7 @@ class OrderService {
 
                             subtotal:
                                 item.price *
-                                item.quantity,
-
-                            images:
-                                Array.isArray(
-                                    item.product?.images
-                                )
-                                    ? item.product.images.map(
-                                        image => ({
-                                            type: "image",
-                                            url: image.url
-                                        })
-                                    )
-                                    : []
+                                item.quantity
 
                         })
                     )
