@@ -31,19 +31,61 @@ const {
 const telegramSessions =
     new Map();
 
+/*
+ * Instância única do bot Telegram.
+ *
+ * Mantemos a referência fora de initTelegram()
+ * para:
+ *
+ * - impedir dupla inicialização do polling;
+ * - permitir desligamento limpo no shutdown;
+ * - evitar conflitos 409 durante restart.
+ */
+let telegramBot =
+    null;
+
 function initTelegram() {
 
-    if (!process.env.TELEGRAM_TOKEN) {
+    /*
+     * ==========================================
+     * TOKEN
+     * ==========================================
+     */
+    if (
+        !process.env.TELEGRAM_TOKEN
+    ) {
 
         console.error(
             "❌ TELEGRAM_TOKEN não definido no .env"
         );
 
-        return;
+        return null;
 
     }
 
-    const bot =
+    /*
+     * ==========================================
+     * EVITA DUPLA INICIALIZAÇÃO
+     * ==========================================
+     */
+    if (
+        telegramBot
+    ) {
+
+        console.log(
+            "ℹ️ Telegram já inicializado."
+        );
+
+        return telegramBot;
+
+    }
+
+    /*
+     * ==========================================
+     * BOT
+     * ==========================================
+     */
+    telegramBot =
         new TelegramBot(
             process.env.TELEGRAM_TOKEN,
             {
@@ -68,16 +110,39 @@ function initTelegram() {
             }
         );
 
+    /*
+     * Referência local para preservar
+     * o restante do código existente.
+     */
+    const bot =
+        telegramBot;
+
+    /*
+     * ==========================================
+     * MESSAGE
+     * ==========================================
+     */
     bot.on(
         "message",
         async msg => {
 
-            if (!msg.text) {
+            /*
+             * Por enquanto tratamos somente
+             * mensagens de texto.
+             */
+            if (
+                !msg.text
+            ) {
 
                 return;
 
             }
 
+            /*
+             * ==================================
+             * IDENTIDADE TELEGRAM
+             * ==================================
+             */
             const telegramId =
                 String(
                     msg.from.id
@@ -96,7 +161,9 @@ function initTelegram() {
                     telegramId
                 );
 
-            if (!channelSession) {
+            if (
+                !channelSession
+            ) {
 
                 channelSession = {
 
@@ -170,8 +237,19 @@ function initTelegram() {
                  * ============================
                  * CRIA USER SE NECESSÁRIO
                  * ============================
+                 *
+                 * IMPORTANTE:
+                 *
+                 * Esta lógica ainda usa o primeiro
+                 * tenant ativo como padrão.
+                 *
+                 * Para o SaaS multi-tenant isso será
+                 * ajustado posteriormente para resolver
+                 * o tenant a partir do bot/canal.
                  */
-                if (!user) {
+                if (
+                    !user
+                ) {
 
                     const defaultTenant =
                         await prisma.tenant.findFirst({
@@ -185,7 +263,9 @@ function initTelegram() {
 
                         });
 
-                    if (!defaultTenant) {
+                    if (
+                        !defaultTenant
+                    ) {
 
                         await sendTelegramSafe(
 
@@ -390,15 +470,34 @@ function initTelegram() {
                     error
                 );
 
-                await sendTelegramSafe(
+                /*
+                 * Se ocorrer algum erro durante
+                 * o processamento da mensagem,
+                 * tentamos avisar o usuário.
+                 */
+                try {
 
-                    bot,
+                    await sendTelegramSafe(
 
-                    msg.chat.id,
+                        bot,
 
-                    `❌ ${error.message || "Erro interno."}`
+                        msg.chat.id,
 
-                );
+                        `❌ ${error.message || "Erro interno."}`
+
+                    );
+
+                } catch (
+                    sendError
+                ) {
+
+                    console.error(
+                        "🔥 ERRO AO ENVIAR FALHA TELEGRAM:",
+                        sendError.message ||
+                        sendError
+                    );
+
+                }
 
             } finally {
 
@@ -411,9 +510,13 @@ function initTelegram() {
     );
 
     /*
-     * Erros do polling precisam ser
-     * tratados separadamente para evitar
-     * silêncio em problemas do Telegram.
+     * ==========================================
+     * POLLING ERROR
+     * ==========================================
+     *
+     * Erros do polling precisam ser tratados
+     * separadamente para evitar silêncio em
+     * problemas do Telegram.
      */
     bot.on(
         "polling_error",
@@ -427,12 +530,104 @@ function initTelegram() {
         }
     );
 
+    /*
+     * ==========================================
+     * WEBHOOK ERROR
+     * ==========================================
+     *
+     * Não usamos webhook neste momento,
+     * mas o listener ajuda caso a configuração
+     * seja alterada futuramente.
+     */
+    bot.on(
+        "webhook_error",
+        error => {
+
+            console.error(
+                "🔥 TELEGRAM WEBHOOK ERROR:",
+                error.message
+            );
+
+        }
+    );
+
     console.log(
         "🤖 Telegram ativo (AI-System 2.0 + multi-agent)."
     );
 
+    return telegramBot;
+
 }
 
+/*
+ * ============================================================
+ * STOP TELEGRAM
+ * ============================================================
+ *
+ * Chamado pelo shutdown do server.js.
+ *
+ * O objetivo principal é encerrar o long polling antes
+ * que o processo termine, evitando conflito temporário
+ * com uma nova instância iniciada pelo PM2.
+ */
+async function stopTelegram() {
+
+    if (
+        !telegramBot
+    ) {
+
+        return;
+
+    }
+
+    const bot =
+        telegramBot;
+
+    /*
+     * Removemos primeiro a referência global para impedir
+     * qualquer tentativa de reutilização durante o shutdown.
+     */
+    telegramBot =
+        null;
+
+    try {
+
+        if (
+            typeof bot.isPolling ===
+            "function" &&
+            bot.isPolling()
+        ) {
+
+            await bot.stopPolling();
+
+        }
+
+    } catch (
+        error
+    ) {
+
+        console.error(
+            "🔥 Erro ao parar polling do Telegram:",
+            error.message ||
+            error
+        );
+
+        throw error;
+
+    } finally {
+
+        telegramSessions.clear();
+
+    }
+
+}
+
+/*
+ * ============================================================
+ * EXPORTS
+ * ============================================================
+ */
 module.exports = {
-    initTelegram
+    initTelegram,
+    stopTelegram
 };
