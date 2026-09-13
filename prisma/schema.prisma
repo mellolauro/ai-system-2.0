@@ -46,6 +46,14 @@ model Tenant {
   active    Boolean @default(true)
   agentName String
 
+  // Endereço operacional / origem das entregas
+  addressLine String?
+  city        String?
+  state       String?
+  zipCode     String?
+  latitude    Float?
+  longitude   Float?
+
   users            User[]
   products         Product[]
   orders           Order[]
@@ -240,7 +248,7 @@ model Order {
   deliveredAt DateTime?
   cancelledAt DateTime?
 
-  items OrderItem[]
+  items      OrderItem[]
   deliveries Delivery[]
 
   createdAt DateTime @default(now())
@@ -269,61 +277,66 @@ model OrderItem {
 }
 
 model Driver {
-  id             String           @id @default(uuid())
+  id             String    @id @default(uuid())
   name           String
-  phone          String           @unique
-  vehicle        String?          // Mantém campo antigo
-  plate          String?          // Mantém campo antigo
-  vehicleInfo    String?          // Novo campo opcional
-  active         Boolean          @default(true) // Mantém campo antigo
-  status         String           @default("AVAILABLE")
+  phone          String    @unique
+  vehicle        String? // Mantém campo antigo
+  plate          String? // Mantém campo antigo
+  vehicleInfo    String? // Novo campo opcional
+  active         Boolean   @default(true) // Mantém campo antigo
+  status         String    @default("AVAILABLE")
   latitude       Float?
   longitude      Float?
   lastLocationAt DateTime?
 
-  tenantId       String?
-  tenant         Tenant?          @relation(fields: [tenantId], references: [id])
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id])
 
-  deliveries     Delivery[]
-  locations      DriverLocation[]
+  deliveries Delivery[]
+  locations  DriverLocation[]
 
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([phone])
 }
 
 model Delivery {
-  id                String    @id @default(uuid())
-  orderId           String?   @unique
-  orderNumber       String?   // Mantém campo antigo
-  status            String    @default("PENDING")
-  order             Order?    @relation(fields: [orderId], references: [id])
+  id          String  @id @default(uuid())
+  orderId     String? @unique
+  orderNumber String?
+  status      String  @default("PENDING")
+  order       Order?  @relation(fields: [orderId], references: [id])
 
-  tenantId          String?
-  tenant            Tenant?   @relation(fields: [tenantId], references: [id])
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id])
 
-  driverId          String?
-  driver            Driver?   @relation(fields: [driverId], references: [id])
+  driverId String?
+  driver   Driver? @relation(fields: [driverId], references: [id])
 
-  recipientName     String?
-  recipientPhone    String?
-  customerPhone     String?   // Mantém campo antigo
-  addressLine       String?
-  latitude          Float?
-  longitude         Float?
+  recipientName  String?
+  recipientPhone String?
+  customerPhone  String?
+
+  addressLine String?
+  city        String?
+  state       String?
+  zipCode     String?
+  reference   String?
+
+  latitude  Float?
+  longitude Float?
 
   estimatedDelivery DateTime?
   deliveredAt       DateTime?
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([driverId])
 }
-
 
 model DriverLocation {
   id        String   @id @default(uuid())

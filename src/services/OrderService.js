@@ -9,30 +9,24 @@ class OrderService {
     }) {
 
         if (!tenantId) {
-
             throw new Error(
                 "tenantId é obrigatório."
             );
-
         }
 
         if (!userId) {
-
             throw new Error(
                 "userId é obrigatório."
             );
-
         }
 
         if (
             !Array.isArray(items) ||
             items.length === 0
         ) {
-
             throw new Error(
                 "O pedido deve possuir pelo menos um item."
             );
-
         }
 
         /*
@@ -42,11 +36,9 @@ class OrderService {
             items.map(item => {
 
                 if (!item?.productId) {
-
                     throw new Error(
                         "Cada item deve possuir productId."
                     );
-
                 }
 
                 const quantity =
@@ -56,11 +48,9 @@ class OrderService {
                     !Number.isInteger(quantity) ||
                     quantity < 1
                 ) {
-
                     throw new Error(
                         `Quantidade inválida para o produto ${item.productId}.`
                     );
-
                 }
 
                 return {
@@ -198,11 +188,9 @@ class OrderService {
                     product.stock <
                     item.quantity
                 ) {
-
                     throw new Error(
                         `Estoque insuficiente para "${product.name}". Disponível: ${product.stock}. Solicitado: ${item.quantity}.`
                     );
-
                 }
 
                 return {
@@ -281,7 +269,8 @@ class OrderService {
 
                                 include: {
 
-                                    product: true
+                                    product:
+                                        true
 
                                 }
 
@@ -300,45 +289,142 @@ class OrderService {
 
     }
 
+
+    /*
+     * Finaliza o carrinho ativo.
+     *
+     * O endereço de entrega só chega aqui
+     * depois que o cliente decidiu finalizar
+     * o pedido e confirmou o destino.
+     *
+     * Toda a operação é atômica:
+     *
+     * Cart
+     *   ↓
+     * CartItem
+     *   ↓
+     * Order
+     *   ↓
+     * OrderItem
+     *   ↓
+     * Delivery
+     *   ↓
+     * Cart = checked_out
+     */
     async checkoutCart({
         tenantId,
-        userId
+        userId,
+        recipientName,
+        recipientPhone,
+        addressLine,
+        city,
+        state,
+        zipCode,
+        reference
     }) {
 
         if (!tenantId) {
-
             throw new Error(
                 "tenantId é obrigatório."
             );
-
         }
 
         if (!userId) {
-
             throw new Error(
                 "userId é obrigatório."
             );
-
         }
 
         /*
-         * Toda a operação acontece dentro
-         * de uma única transação:
+         * Endereço de destino obrigatório.
          *
-         * Cart
-         *   ↓
-         * CartItem
-         *   ↓
-         * Order
-         *   ↓
-         * OrderItem
-         *   ↓
-         * Cart = checked_out
+         * Nunca inferimos o endereço a partir
+         * da geolocalização do telefone.
          */
+        if (
+            typeof addressLine !== "string" ||
+            !addressLine.trim()
+        ) {
+            throw new Error(
+                "Endereço de entrega é obrigatório."
+            );
+        }
+
+        if (
+            typeof city !== "string" ||
+            !city.trim()
+        ) {
+            throw new Error(
+                "Cidade de entrega é obrigatória."
+            );
+        }
+
+        if (
+            typeof state !== "string" ||
+            !state.trim()
+        ) {
+            throw new Error(
+                "Estado da entrega é obrigatório."
+            );
+        }
+
+        if (
+            typeof zipCode !== "string" ||
+            !zipCode.trim()
+        ) {
+            throw new Error(
+                "CEP da entrega é obrigatório."
+            );
+        }
+
+        /*
+         * Normaliza os dados da entrega
+         * antes de iniciar a transação.
+         */
+        const normalizedDelivery = {
+
+            recipientName:
+                typeof recipientName === "string" &&
+                recipientName.trim()
+                    ? recipientName.trim()
+                    : null,
+
+            recipientPhone:
+                typeof recipientPhone === "string" &&
+                recipientPhone.trim()
+                    ? recipientPhone.trim()
+                    : null,
+
+            addressLine:
+                addressLine.trim(),
+
+            city:
+                city.trim(),
+
+            state:
+                state
+                    .trim()
+                    .toUpperCase(),
+
+            zipCode:
+                zipCode.trim(),
+
+            reference:
+                typeof reference === "string" &&
+                reference.trim()
+                    ? reference.trim()
+                    : null
+
+        };
+
         const result =
             await prisma.$transaction(
                 async tx => {
 
+                    /*
+                     * Localiza o carrinho ativo
+                     * dentro do tenant e usuário.
+                     */
                     const cart =
                         await tx.cart.findFirst({
 
@@ -371,27 +457,26 @@ class OrderService {
                         });
 
                     if (!cart) {
-
                         throw new Error(
                             "Nenhum carrinho ativo encontrado."
                         );
-
                     }
 
                     if (
                         !cart.items ||
                         cart.items.length === 0
                     ) {
-
                         throw new Error(
                             "O carrinho está vazio."
                         );
-
                     }
 
                     /*
-                     * Validação dos produtos
-                     * e montagem dos itens do pedido.
+                     * Valida novamente os produtos
+                     * no momento do checkout.
+                     *
+                     * O preço utilizado é sempre
+                     * o preço atual do banco.
                      */
                     const orderItems =
                         cart.items.map(
@@ -401,30 +486,24 @@ class OrderService {
                                     item.product;
 
                                 if (!product) {
-
                                     throw new Error(
                                         `Produto não encontrado para o item ${item.id}.`
                                     );
-
                                 }
 
                                 if (!product.active) {
-
                                     throw new Error(
                                         `O produto "${product.name}" está inativo.`
                                     );
-
                                 }
 
                                 if (
                                     product.stock <
                                     item.quantity
                                 ) {
-
                                     throw new Error(
                                         `Estoque insuficiente para "${product.name}". Disponível: ${product.stock}. Solicitado: ${item.quantity}.`
                                     );
-
                                 }
 
                                 return {
@@ -513,8 +592,67 @@ class OrderService {
                         });
 
                     /*
+                     * Cria o destino operacional
+                     * da entrega.
+                     *
+                     * A origem será obtida posteriormente
+                     * a partir do endereço do Tenant.
+                     *
+                     * latitude e longitude permanecem
+                     * nulos até a etapa de geocodificação.
+                     */
+                    const delivery =
+                        await tx.delivery.create({
+
+                            data: {
+
+                                orderId:
+                                    order.id,
+
+                                tenantId,
+
+                                status:
+                                    "PENDING",
+
+                                recipientName:
+                                    normalizedDelivery
+                                        .recipientName,
+
+                                recipientPhone:
+                                    normalizedDelivery
+                                        .recipientPhone,
+
+                                addressLine:
+                                    normalizedDelivery
+                                        .addressLine,
+
+                                city:
+                                    normalizedDelivery
+                                        .city,
+
+                                state:
+                                    normalizedDelivery
+                                        .state,
+
+                                zipCode:
+                                    normalizedDelivery
+                                        .zipCode,
+
+                                reference:
+                                    normalizedDelivery
+                                        .reference
+
+                            }
+
+                        });
+
+                    /*
                      * Fecha o carrinho somente depois
-                     * que o pedido foi criado com sucesso.
+                     * que Order, OrderItems e Delivery
+                     * foram criados com sucesso.
+                     *
+                     * Se qualquer operação falhar,
+                     * toda a transação será revertida.
                      */
                     const updatedCart =
                         await tx.cart.update({
@@ -539,6 +677,8 @@ class OrderService {
 
                         order,
 
+                        delivery,
+
                         cart:
                             updatedCart
 
@@ -547,12 +687,60 @@ class OrderService {
                 }
             );
 
+        /*
+         * Mantém o retorno anterior:
+         *
+         * order
+         * cart
+         *
+         * e acrescenta delivery.
+         */
         return {
 
             order:
                 this.serializeOrder(
                     result.order
                 ),
+
+            delivery: {
+
+                id:
+                    result.delivery.id,
+
+                orderId:
+                    result.delivery.orderId,
+
+                status:
+                    result.delivery.status,
+
+                recipientName:
+                    result.delivery.recipientName,
+
+                recipientPhone:
+                    result.delivery.recipientPhone,
+
+                addressLine:
+                    result.delivery.addressLine,
+
+                city:
+                    result.delivery.city,
+
+                state:
+                    result.delivery.state,
+
+                zipCode:
+                    result.delivery.zipCode,
+
+                reference:
+                    result.delivery.reference,
+
+                latitude:
+                    result.delivery.latitude,
+
+                longitude:
+                    result.delivery.longitude
+
+            },
 
             cart: {
 
@@ -568,6 +756,7 @@ class OrderService {
 
     }
 
+
     async getOrder({
         tenantId,
         userId,
@@ -575,27 +764,21 @@ class OrderService {
     }) {
 
         if (!tenantId) {
-
             throw new Error(
                 "tenantId é obrigatório."
             );
-
         }
 
         if (!userId) {
-
             throw new Error(
                 "userId é obrigatório."
             );
-
         }
 
         if (!id) {
-
             throw new Error(
                 "id do pedido é obrigatório."
             );
-
         }
 
         const order =
@@ -621,7 +804,8 @@ class OrderService {
 
                                 include: {
 
-                                    images: true
+                                    images:
+                                        true
 
                                 }
 
@@ -636,11 +820,9 @@ class OrderService {
             });
 
         if (!order) {
-
             throw new Error(
                 "Pedido não encontrado."
             );
-
         }
 
         return this.serializeOrder(
@@ -648,6 +830,7 @@ class OrderService {
         );
 
     }
+
 
     async updateStatus({
         tenantId,
@@ -660,7 +843,9 @@ class OrderService {
             await this.getRawOrder({
 
                 tenantId,
+
                 userId,
+
                 orderId
 
             });
@@ -709,6 +894,7 @@ class OrderService {
 
     }
 
+
     async updatePaymentStatus({
         tenantId,
         userId,
@@ -720,7 +906,9 @@ class OrderService {
             await this.getRawOrder({
 
                 tenantId,
+
                 userId,
+
                 orderId
 
             });
@@ -737,7 +925,8 @@ class OrderService {
         };
 
         if (
-            paymentStatus === "PAID"
+            paymentStatus ===
+            "PAID"
         ) {
 
             data.paidAt =
@@ -746,7 +935,8 @@ class OrderService {
         }
 
         if (
-            paymentStatus === "REFUNDED"
+            paymentStatus ===
+            "REFUNDED"
         ) {
 
             data.paymentStatus =
@@ -789,25 +979,22 @@ class OrderService {
 
     }
 
+
     async getLatestOrder({
         tenantId,
         userId
     }) {
 
         if (!tenantId) {
-
             throw new Error(
                 "tenantId é obrigatório."
             );
-
         }
 
         if (!userId) {
-
             throw new Error(
                 "userId é obrigatório."
             );
-
         }
 
         const order =
@@ -823,7 +1010,8 @@ class OrderService {
 
                 orderBy: {
 
-                    createdAt: "desc"
+                    createdAt:
+                        "desc"
 
                 },
 
@@ -837,7 +1025,8 @@ class OrderService {
 
                                 include: {
 
-                                    images: true
+                                    images:
+                                        true
 
                                 }
 
@@ -863,6 +1052,7 @@ class OrderService {
 
     }
 
+
     async shipOrder({
         tenantId,
         userId,
@@ -875,7 +1065,9 @@ class OrderService {
             await this.getRawOrder({
 
                 tenantId,
+
                 userId,
+
                 orderId
 
             });
@@ -885,13 +1077,12 @@ class OrderService {
          * para ser enviado.
          */
         if (
-            order.status !== "PROCESSING"
+            order.status !==
+            "PROCESSING"
         ) {
-
             throw new Error(
                 `Pedido ${order.id} precisa estar PROCESSING para ser enviado. Status atual: ${order.status}.`
             );
-
         }
 
         /*
@@ -899,13 +1090,12 @@ class OrderService {
          * antes da expedição.
          */
         if (
-            order.paymentStatus !== "PAID"
+            order.paymentStatus !==
+            "PAID"
         ) {
-
             throw new Error(
                 `Pedido ${order.id} precisa estar com pagamento PAID para ser enviado. Status atual do pagamento: ${order.paymentStatus}.`
             );
-
         }
 
         const updated =
@@ -959,6 +1149,7 @@ class OrderService {
 
     }
 
+
     async deliverOrder({
         tenantId,
         userId,
@@ -969,19 +1160,20 @@ class OrderService {
             await this.getRawOrder({
 
                 tenantId,
+
                 userId,
+
                 orderId
 
             });
 
         if (
-            order.status !== "SHIPPED"
+            order.status !==
+            "SHIPPED"
         ) {
-
             throw new Error(
                 `Pedido ${order.id} precisa estar SHIPPED para ser entregue. Status atual: ${order.status}.`
             );
-
         }
 
         const updated =
@@ -1027,6 +1219,7 @@ class OrderService {
 
     }
 
+
     async cancelOrder({
         tenantId,
         userId,
@@ -1037,7 +1230,9 @@ class OrderService {
             await this.getRawOrder({
 
                 tenantId,
+
                 userId,
+
                 orderId
 
             });
@@ -1051,11 +1246,9 @@ class OrderService {
                 order.status
             )
         ) {
-
             throw new Error(
                 `Pedido ${order.id} não pode ser cancelado no status ${order.status}.`
             );
-
         }
 
         const updated =
@@ -1101,6 +1294,7 @@ class OrderService {
 
     }
 
+
     async getRawOrder({
         tenantId,
         userId,
@@ -1108,27 +1302,21 @@ class OrderService {
     }) {
 
         if (!tenantId) {
-
             throw new Error(
                 "tenantId é obrigatório."
             );
-
         }
 
         if (!userId) {
-
             throw new Error(
                 "userId é obrigatório."
             );
-
         }
 
         if (!orderId) {
-
             throw new Error(
                 "orderId é obrigatório."
             );
-
         }
 
         const order =
@@ -1148,16 +1336,15 @@ class OrderService {
             });
 
         if (!order) {
-
             throw new Error(
                 "Pedido não encontrado."
             );
-
         }
 
         return order;
 
     }
+
 
     validateStatusTransition(
         currentStatus,
@@ -1230,16 +1417,15 @@ class OrderService {
                 nextStatus
             )
         ) {
-
             throw new Error(
                 `Transição de status inválida: ${currentStatus} → ${nextStatus}.`
             );
-
         }
 
         return true;
 
     }
+
 
     validatePaymentTransition(
         currentStatus,
@@ -1299,16 +1485,15 @@ class OrderService {
                 nextStatus
             )
         ) {
-
             throw new Error(
                 `Transição de pagamento inválida: ${currentStatus} → ${nextStatus}.`
             );
-
         }
 
         return true;
 
     }
+
 
     serializeOrder(order) {
 
@@ -1386,8 +1571,11 @@ class OrderService {
                                 )
                                     ? item.product.images.map(
                                         image => ({
-                                            type: "image",
-                                            url: image.url
+                                            type:
+                                                "image",
+
+                                            url:
+                                                image.url
                                         })
                                     )
                                     : []

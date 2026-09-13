@@ -335,23 +335,35 @@ router.post(
              */
             const {
 
-                   externalUserId,
+                externalUserId,
 
-                   senderName,
+                senderName,
 
-                   message,
+                message,
 
-                   accountId,
+                accountId,
 
-                   senderId,
+                senderId,
 
-                   sessionKey,
+                sessionKey,
 
-                   conversationId,
+                conversationId,
 
-                   messageId
+                messageId
+
             } =
                 req.body || {};
+
+            /*
+             * Campos acima permanecem disponíveis porque fazem
+             * parte do contrato atual do endpoint, mesmo que alguns
+             * não sejam utilizados diretamente nesta rota.
+             */
+            void accountId;
+            void senderId;
+            void sessionKey;
+            void conversationId;
+            void messageId;
 
             /*
              * Validação.
@@ -396,54 +408,6 @@ router.post(
 
             /*
              * ==================================================
-             * LOG DE ENTRADA
-             * ==================================================
-             */
-
-            console.log(
-                "\n[WhatsApp] ===== INBOUND ====="
-            );
-
-            console.log(
-                JSON.stringify(
-                    {
-
-                        externalUserId,
-                        
-                        senderName:
-                            senderName ||
-                            null,
-
-                        message,
-
-                        accountId:
-                            accountId ||
-                            "default",
-
-                        senderId:
-                            senderId ||
-                            null,
-
-                        sessionKey:
-                            sessionKey ||
-                            null,
-
-                        conversationId:
-                            conversationId ||
-                            null,
-
-                        messageId:
-                            messageId ||
-                            null
-
-                    },
-                    null,
-                    2
-                )
-            );
-
-            /*
-             * ==================================================
              * IDENTIDADE
              * ==================================================
              */
@@ -455,11 +419,12 @@ router.post(
                         "whatsapp",
 
                     externalUserId,
-                   
+
                     senderName:
-                        typeof senderName === "string" &&
+                        typeof senderName ===
+                            "string" &&
                         senderName.trim()
-                        
+
                             ? senderName.trim()
 
                             : null
@@ -494,7 +459,7 @@ router.post(
 
             /*
              * ==================================================
-             * LOG DA IDENTIDADE
+             * LOG OPERACIONAL
              * ==================================================
              */
 
@@ -561,7 +526,7 @@ router.post(
 
             /*
              * ==================================================
-             * LOG
+             * LOG OPERACIONAL
              * ==================================================
              */
 
@@ -571,24 +536,6 @@ router.post(
                     ? result.agent.getId()
                     : result?.agent?.id ||
                       null
-            );
-
-            console.log(
-                "[WhatsApp] Resposta gerada:",
-                responseText
-            );
-
-            console.log(
-                "[WhatsApp] Mídias:",
-                JSON.stringify(
-                    media,
-                    null,
-                    2
-                )
-            );
-
-            console.log(
-                "[WhatsApp] =========================\n"
             );
 
             /*

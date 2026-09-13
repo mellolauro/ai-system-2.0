@@ -1,6 +1,17 @@
-const express = require("express");
+ const express = require("express");
 const router = express.Router();
 const prisma = require("../prisma");
+
+function nullable(value) {
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed || null;
+}
 
 // ======================
 // LISTAR TENANTS
@@ -33,14 +44,41 @@ router.post("/create", async (req, res) => {
 
   try {
 
-    const { name, plan, agentName } = req.body;
+    const {
+      name,
+      plan,
+      agentName,
+      addressLine,
+      city,
+      state,
+      zipCode
+    } = req.body;
 
     await prisma.tenant.create({
+
       data: {
-        name,
+
+        name: name.trim(),
+
         plan,
-        agentName
+
+        agentName:
+          agentName?.trim() || "main",
+
+        addressLine:
+          nullable(addressLine),
+
+        city:
+          nullable(city),
+
+        state:
+          nullable(state)?.toUpperCase() || null,
+
+        zipCode:
+          nullable(zipCode)
+
       }
+
     });
 
     res.redirect("/tenants");
@@ -48,7 +86,10 @@ router.post("/create", async (req, res) => {
   } catch (error) {
 
     console.error(error);
-    res.status(500).send("Erro ao criar tenant");
+
+    res
+      .status(500)
+      .send("Erro ao criar tenant");
 
   }
 
@@ -59,9 +100,14 @@ router.post("/create", async (req, res) => {
 // ======================
 router.get("/edit/:id", async (req, res) => {
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: req.params.id }
-  });
+  const tenant =
+    await prisma.tenant.findUnique({
+
+      where: {
+        id: req.params.id
+      }
+
+    });
 
   res.render("tenant-form", {
     tenant
@@ -76,15 +122,46 @@ router.post("/update/:id", async (req, res) => {
 
   try {
 
-    const { name, plan, agentName } = req.body;
+    const {
+      name,
+      plan,
+      agentName,
+      addressLine,
+      city,
+      state,
+      zipCode
+    } = req.body;
 
     await prisma.tenant.update({
-      where: { id: req.params.id },
+
+      where: {
+        id: req.params.id
+      },
+
       data: {
-        name,
+
+        name:
+          name.trim(),
+
         plan,
-        agentName
+
+        agentName:
+          agentName?.trim() || "main",
+
+        addressLine:
+          nullable(addressLine),
+
+        city:
+          nullable(city),
+
+        state:
+          nullable(state)?.toUpperCase() || null,
+
+        zipCode:
+          nullable(zipCode)
+
       }
+
     });
 
     res.redirect("/tenants");
@@ -92,7 +169,10 @@ router.post("/update/:id", async (req, res) => {
   } catch (error) {
 
     console.error(error);
-    res.status(500).send("Erro ao atualizar tenant");
+
+    res
+      .status(500)
+      .send("Erro ao atualizar tenant");
 
   }
 
@@ -104,7 +184,11 @@ router.post("/update/:id", async (req, res) => {
 router.get("/delete/:id", async (req, res) => {
 
   await prisma.tenant.delete({
-    where: { id: req.params.id }
+
+    where: {
+      id: req.params.id
+    }
+
   });
 
   res.redirect("/tenants");

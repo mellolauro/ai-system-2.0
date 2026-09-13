@@ -153,11 +153,13 @@ module.exports = {
 
                 },
 
-                take: 10,
+                take: 5,
 
                 include: {
 
                     images: {
+
+                        take: 1,
 
                         select: {
 
