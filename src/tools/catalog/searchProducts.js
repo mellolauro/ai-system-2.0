@@ -1,11 +1,13 @@
-const prisma = require("../../prisma");
+const prisma =
+    require("../../prisma");
 
 module.exports = {
 
-    name: "searchProducts",
+    name:
+        "searchProducts",
 
     description:
-        "Pesquisa produtos ativos pelo nome ou descrição dentro do tenant informado, podendo limitar o preço máximo. Retorna também as imagens cadastradas do produto.",
+        "Consulta produtos ativos do catálogo. Quando query for informada, pesquisa pelo nome ou descrição. Quando query não for informada, retorna uma pequena amostra do catálogo para permitir visão geral dos produtos disponíveis.",
 
     permissions: [
         "products.read"
@@ -13,31 +15,25 @@ module.exports = {
 
     schema: {
 
-        type: "object",
+        type:
+            "object",
 
         properties: {
 
-            tenantId: {
-
-                type: "string",
-
-                description:
-                    "Identificador do tenant ao qual os produtos pertencem."
-
-            },
-
             query: {
 
-                type: "string",
+                type:
+                    "string",
 
                 description:
-                    "Nome ou parte do nome ou descrição do produto."
+                    "Nome, marca, modelo, característica ou parte da descrição do produto. Opcional para consultas gerais sobre o catálogo."
 
             },
 
             maxPrice: {
 
-                type: "number",
+                type:
+                    "number",
 
                 description:
                     "Preço máximo dos produtos. Opcional."
@@ -46,21 +42,17 @@ module.exports = {
 
         },
 
-        required: [
-            "tenantId",
-            "query"
-        ],
+        required: [],
 
-        additionalProperties: false
+        additionalProperties:
+            false
 
     },
 
     async execute({
-
         tenantId,
         query,
         maxPrice
-
     }) {
 
         if (!tenantId) {
@@ -71,25 +63,42 @@ module.exports = {
 
         }
 
-        if (!query) {
+        const normalizedQuery =
+            typeof query === "string"
+                ? query.trim()
+                : "";
 
-            return [];
-
-        }
-
+        /*
+         * Filtro base obrigatório.
+         */
         const where = {
 
             tenantId,
 
-            active: true,
+            active:
+                true
 
-            OR: [
+        };
+
+        /*
+         * Só aplica pesquisa textual quando
+         * realmente existe uma query.
+         *
+         * Quando a consulta é ampla, o agente
+         * pode chamar a ferramenta sem query
+         * para obter uma pequena amostra
+         * do catálogo.
+         */
+        if (normalizedQuery) {
+
+            where.OR = [
 
                 {
 
                     name: {
 
-                        contains: query,
+                        contains:
+                            normalizedQuery,
 
                         mode:
                             "insensitive"
@@ -102,7 +111,8 @@ module.exports = {
 
                     description: {
 
-                        contains: query,
+                        contains:
+                            normalizedQuery,
 
                         mode:
                             "insensitive"
@@ -111,10 +121,13 @@ module.exports = {
 
                 }
 
-            ]
+            ];
 
-        };
+        }
 
+        /*
+         * Filtro opcional de preço.
+         */
         if (
             maxPrice !== undefined &&
             maxPrice !== null
@@ -135,7 +148,8 @@ module.exports = {
 
             where.price = {
 
-                lte: price
+                lte:
+                    price
 
             };
 
@@ -153,19 +167,27 @@ module.exports = {
 
                 },
 
-                take: 5,
+                /*
+                 * Evita despejar todo o catálogo
+                 * em consultas amplas.
+                 */
+                take:
+                    5,
 
                 include: {
 
                     images: {
 
-                        take: 1,
+                        take:
+                            1,
 
                         select: {
 
-                            id: true,
+                            id:
+                                true,
 
-                            url: true
+                            url:
+                                true
 
                         }
 
