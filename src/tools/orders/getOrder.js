@@ -6,7 +6,7 @@ module.exports = {
     name: "getOrder",
 
     description:
-        "Consulta um pedido do usuário, incluindo status, pagamento, rastreamento, total e itens.",
+        "Consulta um pedido específico do usuário, incluindo status, pagamento, rastreamento, total, itens e endereço de entrega quando houver Delivery vinculada ao pedido.",
 
     permissions: [
         "orders.read"

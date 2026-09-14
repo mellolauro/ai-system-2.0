@@ -5,7 +5,7 @@ module.exports = {
     name: "addToCart",
 
     description:
-        "Adiciona um produto ao carrinho ativo do usuário dentro do tenant informado.",
+        "Adiciona uma quantidade de um produto ao carrinho ativo do usuário dentro do tenant informado. Se o produto já estiver no carrinho, a quantidade informada será somada à quantidade existente. Nunca use esta ferramenta novamente sem uma nova intenção explícita do usuário de adicionar mais unidades.",
 
     permissions: [
         "cart.write"
@@ -39,7 +39,7 @@ module.exports = {
                 type: "integer",
                 minimum: 1,
                 description:
-                    "Quantidade a adicionar."
+                    "Quantidade a adicionar ao carrinho."
             }
 
         },
@@ -81,19 +81,31 @@ module.exports = {
             );
         }
 
-        if (!Number.isInteger(quantity) || quantity < 1) {
+        if (
+            !Number.isInteger(quantity) ||
+            quantity < 1
+        ) {
             throw new Error(
                 "quantity deve ser um inteiro maior ou igual a 1."
             );
         }
 
+        /*
+         * Busca o produto dentro do tenant.
+         */
         const product =
             await prisma.product.findFirst({
 
                 where: {
-                    id: productId,
+
+                    id:
+                        productId,
+
                     tenantId,
-                    active: true
+
+                    active:
+                        true
+
                 }
 
             });
@@ -106,70 +118,143 @@ module.exports = {
 
         }
 
+        /*
+         * Não permite adicionar quantidade superior
+         * ao estoque atual.
+         *
+         * O carrinho não faz baixa de estoque.
+         * A baixa definitiva ocorre somente no checkout.
+         */
+        if (
+            quantity >
+            product.stock
+        ) {
+
+            throw new Error(
+                `Quantidade solicitada excede o estoque disponível de "${product.name}". Estoque disponível: ${product.stock}.`
+            );
+
+        }
+
+        /*
+         * Procura um carrinho ativo.
+         */
         let cart =
             await prisma.cart.findFirst({
 
                 where: {
+
                     userId,
+
                     tenantId,
-                    status: "active"
+
+                    status:
+                        "active"
+
                 }
 
             });
 
+        /*
+         * Cria um carrinho se ainda não existir.
+         */
         if (!cart) {
 
             cart =
                 await prisma.cart.create({
 
                     data: {
+
                         userId,
+
                         tenantId,
-                        status: "active"
+
+                        status:
+                            "active"
+
                     }
 
                 });
 
         }
 
+        /*
+         * Verifica se o produto já existe
+         * no carrinho.
+         */
         const existingItem =
             await prisma.cartItem.findFirst({
 
                 where: {
-                    cartId: cart.id,
+
+                    cartId:
+                        cart.id,
+
                     productId
+
                 }
 
             });
 
         let item;
 
+        /*
+         * Se já existir, soma a nova quantidade
+         * à quantidade presente no carrinho.
+         */
         if (existingItem) {
+
+            const newQuantity =
+                existingItem.quantity +
+                quantity;
+
+            if (
+                newQuantity >
+                product.stock
+            ) {
+
+                throw new Error(
+                    `Quantidade solicitada excede o estoque disponível de "${product.name}". Estoque disponível: ${product.stock}. Quantidade atual no carrinho: ${existingItem.quantity}.`
+                );
+
+            }
 
             item =
                 await prisma.cartItem.update({
 
                     where: {
-                        id: existingItem.id
+
+                        id:
+                            existingItem.id
+
                     },
 
                     data: {
+
                         quantity:
-                            existingItem.quantity +
-                            quantity
+                            newQuantity
+
                     }
 
                 });
 
         } else {
 
+            /*
+             * Produto ainda não existe no carrinho.
+             */
             item =
                 await prisma.cartItem.create({
 
                     data: {
-                        cartId: cart.id,
+
+                        cartId:
+                            cart.id,
+
                         productId,
+
                         quantity
+
                     }
 
                 });
@@ -178,13 +263,22 @@ module.exports = {
 
         return {
 
-            cartId: cart.id,
+            cartId:
+                cart.id,
 
-            itemId: item.id,
+            itemId:
+                item.id,
 
             productId,
 
-            quantity: item.quantity
+            quantity:
+                item.quantity,
+
+            addedQuantity:
+                quantity,
+
+            stockAvailable:
+                product.stock
 
         };
 

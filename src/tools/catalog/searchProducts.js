@@ -7,7 +7,7 @@ module.exports = {
         "searchProducts",
 
     description:
-        "Consulta produtos ativos do catálogo. Quando query for informada, pesquisa pelo nome ou descrição. Quando query não for informada, retorna uma pequena amostra do catálogo para permitir visão geral dos produtos disponíveis.",
+        "Consulta produtos ativos do catálogo por nome, marca, modelo, características ou descrição. Aceita múltiplos termos em qualquer ordem. Quando query não for informada, retorna uma pequena amostra do catálogo.",
 
     permissions: [
         "products.read"
@@ -26,7 +26,7 @@ module.exports = {
                     "string",
 
                 description:
-                    "Nome, marca, modelo, característica ou parte da descrição do produto. Opcional para consultas gerais sobre o catálogo."
+                    "Nome, marca, modelo, característica ou termos relacionados ao produto. As palavras podem ser informadas em qualquer ordem."
 
             },
 
@@ -63,13 +63,17 @@ module.exports = {
 
         }
 
+
         const normalizedQuery =
             typeof query === "string"
-                ? query.trim()
+                ? query
+                    .trim()
+                    .replace(/\s+/g, " ")
                 : "";
 
+
         /*
-         * Filtro base obrigatório.
+         * Filtro obrigatório do tenant.
          */
         const where = {
 
@@ -80,50 +84,94 @@ module.exports = {
 
         };
 
+
         /*
-         * Só aplica pesquisa textual quando
-         * realmente existe uma query.
+         * =================================================
+         * BUSCA POR TERMOS
+         * =================================================
          *
-         * Quando a consulta é ampla, o agente
-         * pode chamar a ferramenta sem query
-         * para obter uma pequena amostra
-         * do catálogo.
+         * Em vez de procurar literalmente:
+         *
+         * "tv smart"
+         *
+         * dividimos em:
+         *
+         * ["tv", "smart"]
+         *
+         * e exigimos que cada termo apareça
+         * no nome OU na descrição.
+         *
+         * Assim:
+         *
+         * "tv smart"
+         * "smart tv"
+         *
+         * encontram:
+         *
+         * "Smart TV Hisense"
          */
         if (normalizedQuery) {
 
-            where.OR = [
+            const terms =
+                normalizedQuery
+                    .split(" ")
+                    .map(
+                        term =>
+                            term.trim()
+                    )
+                    .filter(
+                        term =>
+                            term.length >= 2
+                    );
 
-                {
 
-                    name: {
+            if (
+                terms.length > 0
+            ) {
 
-                        contains:
-                            normalizedQuery,
+                where.AND =
+                    terms.map(
+                        term => ({
 
-                        mode:
-                            "insensitive"
+                            OR: [
 
-                    }
+                                {
 
-                },
+                                    name: {
 
-                {
+                                        contains:
+                                            term,
 
-                    description: {
+                                        mode:
+                                            "insensitive"
 
-                        contains:
-                            normalizedQuery,
+                                    }
 
-                        mode:
-                            "insensitive"
+                                },
 
-                    }
+                                {
 
-                }
+                                    description: {
 
-            ];
+                                        contains:
+                                            term,
+
+                                        mode:
+                                            "insensitive"
+
+                                    }
+
+                                }
+
+                            ]
+
+                        })
+                    );
+
+            }
 
         }
+
 
         /*
          * Filtro opcional de preço.
@@ -134,10 +182,15 @@ module.exports = {
         ) {
 
             const price =
-                Number(maxPrice);
+                Number(
+                    maxPrice
+                );
+
 
             if (
-                !Number.isFinite(price)
+                !Number.isFinite(
+                    price
+                )
             ) {
 
                 throw new Error(
@@ -145,6 +198,7 @@ module.exports = {
                 );
 
             }
+
 
             where.price = {
 
@@ -154,6 +208,20 @@ module.exports = {
             };
 
         }
+
+
+        /*
+         * Em pesquisa específica retornamos
+         * menos opções.
+         *
+         * Em consulta geral retornamos uma
+         * pequena amostra do catálogo.
+         */
+        const take =
+            normalizedQuery
+                ? 3
+                : 5;
+
 
         const products =
             await prisma.product.findMany({
@@ -167,12 +235,7 @@ module.exports = {
 
                 },
 
-                /*
-                 * Evita despejar todo o catálogo
-                 * em consultas amplas.
-                 */
-                take:
-                    5,
+                take,
 
                 include: {
 
@@ -196,6 +259,7 @@ module.exports = {
                 }
 
             });
+
 
         return products;
 

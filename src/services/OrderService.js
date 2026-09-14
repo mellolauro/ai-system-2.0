@@ -54,10 +54,12 @@ class OrderService {
                 }
 
                 return {
+
                     productId:
                         item.productId,
 
                     quantity
+
                 };
 
             });
@@ -88,11 +90,13 @@ class OrderService {
                 groupedItems.set(
                     item.productId,
                     {
+
                         productId:
                             item.productId,
 
                         quantity:
                             item.quantity
+
                     }
                 );
 
@@ -113,14 +117,17 @@ class OrderService {
 
                     tenantId,
 
-                    active: true,
+                    active:
+                        true,
 
                     id: {
+
                         in:
                             finalItems.map(
                                 item =>
                                     item.productId
                             )
+
                     }
 
                 }
@@ -166,8 +173,10 @@ class OrderService {
             new Map(
                 products.map(
                     product => [
+
                         product.id,
                         product
+
                     ]
                 )
             );
@@ -188,9 +197,11 @@ class OrderService {
                     product.stock <
                     item.quantity
                 ) {
+
                     throw new Error(
                         `Estoque insuficiente para "${product.name}". Disponível: ${product.stock}. Solicitado: ${item.quantity}.`
                     );
+
                 }
 
                 return {
@@ -233,11 +244,77 @@ class OrderService {
 
         /*
          * Criação transacional.
+         *
+         * A baixa de estoque e a criação do pedido
+         * pertencem à mesma transação.
+         *
+         * Se qualquer operação falhar,
+         * toda a transação será revertida.
          */
         const order =
             await prisma.$transaction(
                 async tx => {
 
+                    /*
+                     * Baixa o estoque de forma protegida
+                     * contra concorrência.
+                     */
+                    for (
+                        const item
+                        of orderItems
+                    ) {
+
+                        const updatedStock =
+                            await tx.product.updateMany({
+
+                                where: {
+
+                                    id:
+                                        item.productId,
+
+                                    tenantId,
+
+                                    active:
+                                        true,
+
+                                    stock: {
+
+                                        gte:
+                                            item.quantity
+
+                                    }
+
+                                },
+
+                                data: {
+
+                                    stock: {
+
+                                        decrement:
+                                            item.quantity
+
+                                    }
+
+                                }
+
+                            });
+
+                        if (
+                            updatedStock.count !== 1
+                        ) {
+
+                            throw new Error(
+                                `Estoque insuficiente ou produto indisponível para ${item.productId}.`
+                            );
+
+                        }
+
+                    }
+
+                    /*
+                     * Cria o pedido somente depois
+                     * da validação/baixa do estoque.
+                     */
                     return tx.order.create({
 
                         data: {
@@ -269,8 +346,16 @@ class OrderService {
 
                                 include: {
 
-                                    product:
-                                        true
+                                    product: {
+
+                                        include: {
+
+                                            images:
+                                                true
+
+                                        }
+
+                                    }
 
                                 }
 
@@ -302,6 +387,10 @@ class OrderService {
      * Cart
      *   ↓
      * CartItem
+     *   ↓
+     * valida estoque
+     *   ↓
+     * baixa estoque
      *   ↓
      * Order
      *   ↓
@@ -345,41 +434,48 @@ class OrderService {
             typeof addressLine !== "string" ||
             !addressLine.trim()
         ) {
+
             throw new Error(
                 "Endereço de entrega é obrigatório."
             );
+
         }
 
         if (
             typeof city !== "string" ||
             !city.trim()
         ) {
+
             throw new Error(
                 "Cidade de entrega é obrigatória."
             );
+
         }
 
         if (
             typeof state !== "string" ||
             !state.trim()
         ) {
+
             throw new Error(
                 "Estado da entrega é obrigatório."
             );
+
         }
 
         if (
             typeof zipCode !== "string" ||
             !zipCode.trim()
         ) {
+
             throw new Error(
                 "CEP da entrega é obrigatório."
             );
+
         }
 
         /*
-         * Normaliza os dados da entrega
-         * antes de iniciar a transação.
+         * Normaliza os dados da entrega.
          */
         const normalizedDelivery = {
 
@@ -422,8 +518,7 @@ class OrderService {
                 async tx => {
 
                     /*
-                     * Localiza o carrinho ativo
-                     * dentro do tenant e usuário.
+                     * Localiza o carrinho ativo.
                      */
                     const cart =
                         await tx.cart.findFirst({
@@ -457,18 +552,22 @@ class OrderService {
                         });
 
                     if (!cart) {
+
                         throw new Error(
                             "Nenhum carrinho ativo encontrado."
                         );
+
                     }
 
                     if (
                         !cart.items ||
                         cart.items.length === 0
                     ) {
+
                         throw new Error(
                             "O carrinho está vazio."
                         );
+
                     }
 
                     /*
@@ -486,24 +585,30 @@ class OrderService {
                                     item.product;
 
                                 if (!product) {
+
                                     throw new Error(
                                         `Produto não encontrado para o item ${item.id}.`
                                     );
+
                                 }
 
                                 if (!product.active) {
+
                                     throw new Error(
                                         `O produto "${product.name}" está inativo.`
                                     );
+
                                 }
 
                                 if (
                                     product.stock <
                                     item.quantity
                                 ) {
+
                                     throw new Error(
                                         `Estoque insuficiente para "${product.name}". Disponível: ${product.stock}. Solicitado: ${item.quantity}.`
                                     );
+
                                 }
 
                                 return {
@@ -523,8 +628,8 @@ class OrderService {
                         );
 
                     /*
-                     * O total é calculado exclusivamente
-                     * a partir dos preços atuais do banco.
+                     * Total calculado exclusivamente
+                     * no backend.
                      */
                     const total =
                         orderItems.reduce(
@@ -544,6 +649,66 @@ class OrderService {
                             },
                             0
                         );
+
+                    /*
+                     * Baixa o estoque dentro da mesma
+                     * transação do checkout.
+                     *
+                     * O updateMany com stock >= quantity
+                     * evita estoque negativo em caso de
+                     * checkouts concorrentes.
+                     */
+                    for (
+                        const item
+                        of orderItems
+                    ) {
+
+                        const updatedStock =
+                            await tx.product.updateMany({
+
+                                where: {
+
+                                    id:
+                                        item.productId,
+
+                                    tenantId,
+
+                                    active:
+                                        true,
+
+                                    stock: {
+
+                                        gte:
+                                            item.quantity
+
+                                    }
+
+                                },
+
+                                data: {
+
+                                    stock: {
+
+                                        decrement:
+                                            item.quantity
+
+                                    }
+
+                                }
+
+                            });
+
+                        if (
+                            updatedStock.count !== 1
+                        ) {
+
+                            throw new Error(
+                                `Estoque insuficiente ou produto indisponível para ${item.productId}.`
+                            );
+
+                        }
+
+                    }
 
                     /*
                      * Cria o pedido e seus itens.
@@ -594,12 +759,6 @@ class OrderService {
                     /*
                      * Cria o destino operacional
                      * da entrega.
-                     *
-                     * A origem será obtida posteriormente
-                     * a partir do endereço do Tenant.
-                     *
-                     * latitude e longitude permanecem
-                     * nulos até a etapa de geocodificação.
                      */
                     const delivery =
                         await tx.delivery.create({
@@ -648,11 +807,8 @@ class OrderService {
 
                     /*
                      * Fecha o carrinho somente depois
-                     * que Order, OrderItems e Delivery
-                     * foram criados com sucesso.
-                     *
-                     * Se qualquer operação falhar,
-                     * toda a transação será revertida.
+                     * que estoque, Order, OrderItems
+                     * e Delivery foram processados.
                      */
                     const updatedCart =
                         await tx.cart.update({
@@ -687,14 +843,6 @@ class OrderService {
                 }
             );
 
-        /*
-         * Mantém o retorno anterior:
-         *
-         * order
-         * cart
-         *
-         * e acrescenta delivery.
-         */
         return {
 
             order:
@@ -813,6 +961,51 @@ class OrderService {
 
                         }
 
+                    },
+
+                    deliveries: {
+
+                        orderBy: {
+
+                            createdAt:
+                                "desc"
+
+                        },
+
+                        take:
+                            1,
+
+                        select: {
+
+                            id:
+                                true,
+
+                            status:
+                                true,
+
+                            recipientName:
+                                true,
+
+                            recipientPhone:
+                                true,
+
+                            addressLine:
+                                true,
+
+                            city:
+                                true,
+
+                            state:
+                                true,
+
+                            zipCode:
+                                true,
+
+                            reference:
+                                true
+
+                        }
+
                     }
 
                 }
@@ -820,9 +1013,11 @@ class OrderService {
             });
 
         if (!order) {
+
             throw new Error(
                 "Pedido não encontrado."
             );
+
         }
 
         return this.serializeOrder(
@@ -1034,6 +1229,51 @@ class OrderService {
 
                         }
 
+                    },
+
+                    deliveries: {
+
+                        orderBy: {
+
+                            createdAt:
+                                "desc"
+
+                        },
+
+                        take:
+                            1,
+
+                        select: {
+
+                            id:
+                                true,
+
+                            status:
+                                true,
+
+                            recipientName:
+                                true,
+
+                            recipientPhone:
+                                true,
+
+                            addressLine:
+                                true,
+
+                            city:
+                                true,
+
+                            state:
+                                true,
+
+                            zipCode:
+                                true,
+
+                            reference:
+                                true
+
+                        }
+
                     }
 
                 }
@@ -1072,30 +1312,26 @@ class OrderService {
 
             });
 
-        /*
-         * O pedido precisa estar em PROCESSING
-         * para ser enviado.
-         */
         if (
             order.status !==
             "PROCESSING"
         ) {
+
             throw new Error(
                 `Pedido ${order.id} precisa estar PROCESSING para ser enviado. Status atual: ${order.status}.`
             );
+
         }
 
-        /*
-         * O pagamento precisa estar confirmado
-         * antes da expedição.
-         */
         if (
             order.paymentStatus !==
             "PAID"
         ) {
+
             throw new Error(
                 `Pedido ${order.id} precisa estar com pagamento PAID para ser enviado. Status atual do pagamento: ${order.paymentStatus}.`
             );
+
         }
 
         const updated =
@@ -1171,9 +1407,11 @@ class OrderService {
             order.status !==
             "SHIPPED"
         ) {
+
             throw new Error(
                 `Pedido ${order.id} precisa estar SHIPPED para ser entregue. Status atual: ${order.status}.`
             );
+
         }
 
         const updated =
@@ -1246,9 +1484,11 @@ class OrderService {
                 order.status
             )
         ) {
+
             throw new Error(
                 `Pedido ${order.id} não pode ser cancelado no status ${order.status}.`
             );
+
         }
 
         const updated =
@@ -1336,9 +1576,11 @@ class OrderService {
             });
 
         if (!order) {
+
             throw new Error(
                 "Pedido não encontrado."
             );
+
         }
 
         return order;
@@ -1369,11 +1611,6 @@ class OrderService {
 
             ],
 
-            /*
-             * Mantido para compatibilidade com pedidos
-             * que eventualmente utilizem PAID como
-             * OrderStatus.
-             */
             PAID: [
 
                 "SHIPPED",
@@ -1400,9 +1637,6 @@ class OrderService {
             transitions[currentStatus] ||
             [];
 
-        /*
-         * Não altera se o status já for o mesmo.
-         */
         if (
             currentStatus ===
             nextStatus
@@ -1417,9 +1651,11 @@ class OrderService {
                 nextStatus
             )
         ) {
+
             throw new Error(
                 `Transição de status inválida: ${currentStatus} → ${nextStatus}.`
             );
+
         }
 
         return true;
@@ -1468,9 +1704,6 @@ class OrderService {
             transitions[currentStatus] ||
             [];
 
-        /*
-         * Não altera se o status já for o mesmo.
-         */
         if (
             currentStatus ===
             nextStatus
@@ -1485,9 +1718,11 @@ class OrderService {
                 nextStatus
             )
         ) {
+
             throw new Error(
                 `Transição de pagamento inválida: ${currentStatus} → ${nextStatus}.`
             );
+
         }
 
         return true;
@@ -1496,6 +1731,14 @@ class OrderService {
 
 
     serializeOrder(order) {
+
+        const delivery =
+            Array.isArray(
+                order.deliveries
+            ) &&
+            order.deliveries.length > 0
+                ? order.deliveries[0]
+                : null;
 
         return {
 
@@ -1525,6 +1768,40 @@ class OrderService {
 
             carrier:
                 order.carrier,
+
+            delivery:
+                delivery
+                    ? {
+
+                        id:
+                            delivery.id,
+
+                        status:
+                            delivery.status,
+
+                        recipientName:
+                            delivery.recipientName,
+
+                        recipientPhone:
+                            delivery.recipientPhone,
+
+                        addressLine:
+                            delivery.addressLine,
+
+                        city:
+                            delivery.city,
+
+                        state:
+                            delivery.state,
+
+                        zipCode:
+                            delivery.zipCode,
+
+                        reference:
+                            delivery.reference
+
+                    }
+                    : null,
 
             paidAt:
                 order.paidAt,
@@ -1571,11 +1848,13 @@ class OrderService {
                                 )
                                     ? item.product.images.map(
                                         image => ({
+
                                             type:
                                                 "image",
 
                                             url:
                                                 image.url
+
                                         })
                                     )
                                     : []

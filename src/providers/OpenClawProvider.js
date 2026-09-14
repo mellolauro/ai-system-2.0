@@ -90,6 +90,7 @@ class OpenClawProvider extends Provider {
 
     }
 
+
     async initialize() {
 
         if (!this.token) {
@@ -124,6 +125,7 @@ class OpenClawProvider extends Provider {
 
     }
 
+
     async generate(request = {}) {
 
         const {
@@ -156,6 +158,7 @@ class OpenClawProvider extends Provider {
 
         } = request;
 
+
         /*
          * Resolve o agente do AI-System
          * para o target OpenClaw.
@@ -166,6 +169,7 @@ class OpenClawProvider extends Provider {
                 agent
             );
 
+
         /*
          * Não altera o array original.
          */
@@ -174,11 +178,13 @@ class OpenClawProvider extends Provider {
                 ? [...messages]
                 : [];
 
+
         /*
          * Mídias encontradas durante
          * o ciclo de Tool Calling.
          */
         const media = [];
+
 
         /*
          * Tools no formato OpenAI.
@@ -187,6 +193,7 @@ class OpenClawProvider extends Provider {
             this.normalizeTools(
                 tools
             );
+
 
         /*
          * Contexto confiável da aplicação.
@@ -211,6 +218,7 @@ class OpenClawProvider extends Provider {
             permissions
 
         };
+
 
         /*
          * Cada execução do AI-System utiliza uma
@@ -242,6 +250,7 @@ class OpenClawProvider extends Provider {
         console.log(
             `[OpenClawProvider] 🔧 Tools disponíveis: ${toolDefinitions.length}`
         );
+
 
         /*
          * Ciclo:
@@ -280,6 +289,7 @@ class OpenClawProvider extends Provider {
 
             };
 
+
             if (
                 temperature !== undefined
             ) {
@@ -289,6 +299,7 @@ class OpenClawProvider extends Provider {
 
             }
 
+
             if (
                 maxTokens !== undefined
             ) {
@@ -297,6 +308,7 @@ class OpenClawProvider extends Provider {
                     maxTokens;
 
             }
+
 
             if (
                 toolDefinitions.length > 0
@@ -309,6 +321,7 @@ class OpenClawProvider extends Provider {
                     "auto";
 
             }
+
 
             try {
 
@@ -331,7 +344,10 @@ class OpenClawProvider extends Provider {
                         payload.messages
                     )
                         ? payload.messages.map(
-                            (message, index) => {
+                            (
+                                message,
+                                index
+                            ) => {
 
                                 const content =
                                     typeof message?.content ===
@@ -374,6 +390,7 @@ class OpenClawProvider extends Provider {
                         )
                         : [];
 
+
                 const messagesChars =
                     messageStats.reduce(
                         (
@@ -385,6 +402,7 @@ class OpenClawProvider extends Provider {
                         0
                     );
 
+
                 const toolsJson =
                     payload.tools
                         ? JSON.stringify(
@@ -392,16 +410,20 @@ class OpenClawProvider extends Provider {
                         )
                         : "";
 
+
                 const toolsChars =
                     toolsJson.length;
+
 
                 const payloadJson =
                     JSON.stringify(
                         payload
                     );
 
+
                 const payloadChars =
                     payloadJson.length;
+
 
                 /*
                  * Estimativa grosseira:
@@ -418,6 +440,7 @@ class OpenClawProvider extends Provider {
                         payloadChars /
                         4
                     );
+
 
                 console.log(
                     "[OpenClawProvider][CONTEXT_STATS]",
@@ -456,19 +479,23 @@ class OpenClawProvider extends Provider {
                     )
                 );
 
+
                 const response =
                     await this.http.post(
                         "/chat/completions",
                         payload
                     );
 
+
                 const data =
                     response.data;
+
 
                 const choice =
                     data
                         ?.choices
                         ?.[0];
+
 
                 if (!choice) {
 
@@ -477,6 +504,7 @@ class OpenClawProvider extends Provider {
                     );
 
                 }
+
 
                 /*
                  * Registra somente métricas de uso
@@ -499,10 +527,12 @@ class OpenClawProvider extends Provider {
 
                 }
 
+
                 console.log(
                     "[OpenClawProvider] 📨 finish_reason:",
                     choice.finish_reason
                 );
+
 
                 /*
                  * Resposta final.
@@ -534,6 +564,7 @@ class OpenClawProvider extends Provider {
 
                 }
 
+
                 /*
                  * OpenClaw solicitou Tools.
                  */
@@ -543,6 +574,7 @@ class OpenClawProvider extends Provider {
                         ?.tool_calls ||
                     [];
 
+
                 console.log(
                     "[OpenClawProvider] 🔧 Tool calls:",
                     JSON.stringify(
@@ -551,6 +583,7 @@ class OpenClawProvider extends Provider {
                         2
                     )
                 );
+
 
                 if (
                     toolCalls.length === 0
@@ -562,6 +595,7 @@ class OpenClawProvider extends Provider {
 
                 }
 
+
                 /*
                  * Mensagem assistant contendo
                  * tool_calls entra no histórico
@@ -570,6 +604,7 @@ class OpenClawProvider extends Provider {
                 conversationMessages.push(
                     choice.message
                 );
+
 
                 for (
                     const toolCall
@@ -581,22 +616,27 @@ class OpenClawProvider extends Provider {
                             ?.function
                             ?.name;
 
+
                     const argumentsText =
                         toolCall
                             ?.function
                             ?.arguments ||
                         "{}";
 
+
                     const toolCallId =
                         toolCall?.id;
+
 
                     console.log(
                         `[OpenClawProvider] 🔧 Executando Tool: ${toolName}`
                     );
 
+
                     console.log(
                         `[OpenClawProvider] 📥 Argumentos: ${argumentsText}`
                     );
+
 
                     if (!toolName) {
 
@@ -608,7 +648,9 @@ class OpenClawProvider extends Provider {
 
                     }
 
+
                     let argumentsObject;
+
 
                     try {
 
@@ -626,9 +668,11 @@ class OpenClawProvider extends Provider {
 
                         };
 
+
                         conversationMessages.push({
 
-                            role: "tool",
+                            role:
+                                "tool",
 
                             tool_call_id:
                                 toolCallId,
@@ -640,11 +684,14 @@ class OpenClawProvider extends Provider {
 
                         });
 
+
                         continue;
 
                     }
 
+
                     let result;
+
 
                     try {
 
@@ -659,9 +706,11 @@ class OpenClawProvider extends Provider {
 
                             );
 
+
                         console.log(
                             `[OpenClawProvider] ✅ Tool executada: ${toolName}`
                         );
+
 
                         /*
                          * Mantemos por enquanto o resultado
@@ -680,14 +729,22 @@ class OpenClawProvider extends Provider {
                             )
                         );
 
+
                         /*
-                         * Coleta todas as imagens
-                         * encontradas no resultado.
+                         * Coleta somente as mídias apropriadas
+                         * para o tipo de Tool executada.
+                         *
+                         * Isso evita que searchProducts,
+                         * por exemplo, envie automaticamente
+                         * imagens de todos os produtos
+                         * encontrados na busca.
                          */
-                        this.collectMedia(
+                        this.collectToolMedia(
+                            toolName,
                             result,
                             media
                         );
+
 
                     } catch (error) {
 
@@ -695,6 +752,7 @@ class OpenClawProvider extends Provider {
                             `[OpenClawProvider] ❌ Erro na Tool ${toolName}:`,
                             error.message
                         );
+
 
                         result = {
 
@@ -704,6 +762,7 @@ class OpenClawProvider extends Provider {
                         };
 
                     }
+
 
                     /*
                      * Resultado da Tool volta
@@ -718,7 +777,8 @@ class OpenClawProvider extends Provider {
                      */
                     conversationMessages.push({
 
-                        role: "tool",
+                        role:
+                            "tool",
 
                         tool_call_id:
                             toolCallId,
@@ -732,6 +792,7 @@ class OpenClawProvider extends Provider {
 
                 }
 
+
             } catch (error) {
 
                 throw this.normalizeError(
@@ -742,11 +803,13 @@ class OpenClawProvider extends Provider {
 
         }
 
+
         throw new Error(
             `Limite de Tool Calling atingido (${this.maxToolCalls}).`
         );
 
     }
+
 
     async chat(request = {}) {
 
@@ -755,6 +818,7 @@ class OpenClawProvider extends Provider {
         );
 
     }
+
 
     async stream(request = {}) {
 
@@ -771,6 +835,7 @@ class OpenClawProvider extends Provider {
         });
 
     }
+
 
     async health() {
 
@@ -795,6 +860,7 @@ class OpenClawProvider extends Provider {
         };
 
     }
+
 
     resolveAgentTarget(agent) {
 
@@ -830,6 +896,7 @@ class OpenClawProvider extends Provider {
 
     }
 
+
     normalizeTools(tools) {
 
         if (
@@ -861,6 +928,7 @@ class OpenClawProvider extends Provider {
 
     }
 
+
     buildSessionUser(session) {
 
         if (!session) {
@@ -879,6 +947,7 @@ class OpenClawProvider extends Provider {
         );
 
     }
+
 
     resolveSessionId(session) {
 
@@ -908,6 +977,7 @@ class OpenClawProvider extends Provider {
         );
 
     }
+
 
     serializeToolResult(result) {
 
@@ -951,9 +1021,162 @@ class OpenClawProvider extends Provider {
 
     }
 
+
+    /*
+     * Coleta mídias considerando a Tool
+     * que produziu o resultado.
+     *
+     * O objetivo é impedir que qualquer
+     * objeto contendo "images" seja
+     * automaticamente enviado ao canal.
+     */
+    collectToolMedia(
+        toolName,
+        result,
+        media
+    ) {
+
+        /*
+         * ==========================================
+         * SEARCH PRODUCTS
+         * ==========================================
+         *
+         * searchProducts pode retornar vários
+         * produtos para que o agente avalie
+         * quais opções são relevantes.
+         *
+         * Não devemos enviar automaticamente
+         * todas as imagens desses produtos.
+         *
+         * Nesta etapa utilizamos apenas o primeiro
+         * produto retornado como mídia principal.
+         */
+        if (
+            toolName ===
+            "searchProducts"
+        ) {
+
+            if (
+                Array.isArray(result) &&
+                result.length > 0
+            ) {
+
+                this.collectMedia(
+                    result[0],
+                    media
+                );
+
+            }
+
+            return;
+
+        }
+
+
+        /*
+         * ==========================================
+         * GET PRODUCT
+         * ==========================================
+         *
+         * getProduct representa uma consulta
+         * direcionada a um produto específico.
+         *
+         * Nesse caso podemos utilizar normalmente
+         * a imagem do produto retornado.
+         */
+        if (
+            toolName ===
+            "getProduct"
+        ) {
+
+            this.collectMedia(
+                result,
+                media
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * ==========================================
+         * ADD TO CART
+         * ==========================================
+         *
+         * O produto já foi apresentado antes.
+         *
+         * Não reenviamos sua imagem simplesmente
+         * porque ele foi adicionado ao carrinho.
+         */
+        if (
+            toolName ===
+            "addToCart"
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * ==========================================
+         * PEDIDOS / CHECKOUT / DELIVERY
+         * ==========================================
+         *
+         * Essas Tools podem retornar produtos
+         * aninhados juntamente com pedido,
+         * carrinho ou entrega.
+         *
+         * Não devemos reenviar imagens de produto
+         * ao consultar pedido, finalizar compra
+         * ou consultar rastreamento.
+         */
+        if (
+            [
+                "checkoutCart",
+                "createOrder",
+                "getOrder",
+                "getLatestOrder",
+                "trackDelivery",
+                "getDeliveryStatus",
+                "cancelOrder",
+                "shipOrder",
+                "deliverOrder",
+                "updatePaymentStatus"
+            ].includes(
+                toolName
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * ==========================================
+         * OUTRAS TOOLS
+         * ==========================================
+         *
+         * Mantém compatibilidade com futuras
+         * Tools que eventualmente retornem mídia.
+         */
+        this.collectMedia(
+            result,
+            media
+        );
+
+    }
+
+
     /*
      * Procura imagens recursivamente
      * dentro do retorno das Tools.
+     *
+     * Este método continua sendo o coletor
+     * genérico. A decisão de QUANDO utilizá-lo
+     * fica centralizada em collectToolMedia().
      */
     collectMedia(
         value,
@@ -968,6 +1191,7 @@ class OpenClawProvider extends Provider {
             return;
 
         }
+
 
         if (
             Array.isArray(value)
@@ -989,6 +1213,7 @@ class OpenClawProvider extends Provider {
 
         }
 
+
         if (
             typeof value !==
             "object"
@@ -997,6 +1222,7 @@ class OpenClawProvider extends Provider {
             return;
 
         }
+
 
         if (
             Array.isArray(
@@ -1018,10 +1244,12 @@ class OpenClawProvider extends Provider {
 
                 }
 
+
                 const relativeUrl =
                     String(
                         image.url
                     ).trim();
+
 
                 if (
                     !relativeUrl.startsWith(
@@ -1032,6 +1260,7 @@ class OpenClawProvider extends Provider {
                     continue;
 
                 }
+
 
                 /*
                  * Converte:
@@ -1048,11 +1277,13 @@ class OpenClawProvider extends Provider {
                         ""
                     );
 
+
                 const absolutePath =
                     path.resolve(
                         this.publicDir,
                         relativePath
                     );
+
 
                 /*
                  * Evita duplicação.
@@ -1064,6 +1295,7 @@ class OpenClawProvider extends Provider {
                             absolutePath
                     );
 
+
                 if (
                     exists
                 ) {
@@ -1071,6 +1303,7 @@ class OpenClawProvider extends Provider {
                     continue;
 
                 }
+
 
                 media.push({
 
@@ -1092,12 +1325,16 @@ class OpenClawProvider extends Provider {
 
         }
 
+
         /*
          * Continua pesquisando objetos
          * aninhados.
          */
         for (
-            const [key, child]
+            const [
+                key,
+                child
+            ]
             of Object.entries(
                 value
             )
@@ -1120,6 +1357,7 @@ class OpenClawProvider extends Provider {
 
     }
 
+
     /*
      * Normaliza mídias antes de devolver
      * ao ChatPipeline.
@@ -1138,7 +1376,8 @@ class OpenClawProvider extends Provider {
             .filter(
                 item =>
                     item &&
-                    item.type === "image" &&
+                    item.type ===
+                        "image" &&
                     item.path
             )
             .map(
@@ -1163,6 +1402,7 @@ class OpenClawProvider extends Provider {
 
     }
 
+
     extractContent(data) {
 
         const content =
@@ -1185,9 +1425,12 @@ class OpenClawProvider extends Provider {
 
     }
 
+
     normalizeError(error) {
 
-        if (error.response) {
+        if (
+            error.response
+        ) {
 
             const message =
                 error.response.data
@@ -1201,6 +1444,7 @@ class OpenClawProvider extends Provider {
 
         }
 
+
         if (
             error.code ===
             "ECONNREFUSED"
@@ -1211,6 +1455,7 @@ class OpenClawProvider extends Provider {
             );
 
         }
+
 
         if (
             error.code ===
@@ -1224,6 +1469,7 @@ class OpenClawProvider extends Provider {
             );
 
         }
+
 
         return error;
 
