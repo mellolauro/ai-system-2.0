@@ -1,101 +1,742 @@
 <div class="space-y-6">
+
+  <!-- CABEÇALHO -->
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
     <div>
-      <h1 class="text-2xl font-bold text-slate-900">Gestão de Entregadores</h1>
-      <p class="text-sm text-slate-500">Cadastre e gerencie os motoboys e motoristas da sua frota.</p>
+      <h1 class="text-2xl font-bold text-slate-900">
+        Gestão de Entregadores
+      </h1>
+
+      <p class="text-sm text-slate-500">
+        Cadastre e gerencie os motoboys e motoristas da sua frota.
+      </p>
     </div>
   </div>
+
+
+  <!-- MENSAGENS -->
+  <% if (success) { %>
+    <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
+      <i class="fas fa-check-circle mr-2"></i>
+      <%= success %>
+    </div>
+  <% } %>
+
+  <% if (error) { %>
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+      <i class="fas fa-exclamation-circle mr-2"></i>
+      <%= error %>
+    </div>
+  <% } %>
+
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- FORMULÁRIO DE CADASTRO -->
+
+    <!-- ================================================= -->
+    <!-- CADASTRO -->
+    <!-- ================================================= -->
+
     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
+
       <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-        <i class="fas fa-user-plus text-blue-600"></i> Novo Entregador
+        <i class="fas fa-user-plus text-blue-600"></i>
+        Novo Entregador
       </h2>
 
-      <form action="/dashboard/drivers" method="POST" class="space-y-4">
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nome Completo</label>
-          <input type="text" name="name" required placeholder="Ex: Carlos Entregador"
-            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-        </div>
+      <form
+        action="/dashboard/drivers"
+        method="POST"
+        class="space-y-4"
+      >
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Telefone / WhatsApp</label>
-          <input type="text" name="phone" required placeholder="+5521999999999"
-            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+            Nome Completo
+          </label>
+
+          <input
+            type="text"
+            name="name"
+            required
+            placeholder="Ex: Carlos Entregador"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          >
         </div>
+
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Veículo</label>
-          <input type="text" name="vehicle" placeholder="Ex: Moto Honda CG 160"
-            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+            Telefone / WhatsApp
+          </label>
+
+          <input
+            type="text"
+            name="phone"
+            required
+            placeholder="+5521999999999"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          >
         </div>
+
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Placa do Veículo</label>
-          <input type="text" name="plate" placeholder="Ex: ABC-1234"
-            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+            Veículo
+          </label>
+
+          <input
+            type="text"
+            name="vehicle"
+            placeholder="Ex: Moto Honda CG 160"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          >
         </div>
 
-        <button type="submit"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg shadow-sm transition-all text-sm flex items-center justify-center gap-2">
-          <i class="fas fa-save"></i> Cadastrar Entregador
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+            Placa do Veículo
+          </label>
+
+          <input
+            type="text"
+            name="plate"
+            placeholder="Ex: ABC-1234"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+        </div>
+
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+            Informações do Veículo
+          </label>
+
+          <textarea
+            name="vehicleInfo"
+            rows="3"
+            placeholder="Ex: Moto vermelha, baú traseiro..."
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+          ></textarea>
+        </div>
+
+
+        <button
+          type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg shadow-sm transition-all text-sm flex items-center justify-center gap-2"
+        >
+          <i class="fas fa-save"></i>
+          Cadastrar Entregador
         </button>
+
       </form>
+
     </div>
 
-    <!-- LISTA DE ENTREGADORES -->
+
+    <!-- ================================================= -->
+    <!-- LISTAGEM -->
+    <!-- ================================================= -->
+
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="p-6 border-b border-slate-100">
-        <h2 class="text-lg font-bold text-slate-800">Entregadores Cadastrados</h2>
+
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between gap-4">
+
+        <div>
+          <h2 class="text-lg font-bold text-slate-800">
+            Entregadores Cadastrados
+          </h2>
+
+          <p class="text-xs text-slate-500 mt-1">
+            <%= drivers ? drivers.length : 0 %> entregador(es)
+          </p>
+        </div>
+
       </div>
+
 
       <div class="overflow-x-auto">
+
         <table class="w-full text-left border-collapse text-sm">
+
           <thead>
+
             <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-xs uppercase">
-              <th class="p-4">Nome</th>
-              <th class="p-4">Telefone</th>
-              <th class="p-4">Veículo / Placa</th>
-              <th class="p-4">Entregas Associadas</th>
-              <th class="p-4 text-center">Status GPS</th>
+
+              <th class="p-4">
+                Entregador
+              </th>
+
+              <th class="p-4">
+                Veículo
+              </th>
+
+              <th class="p-4">
+                Status
+              </th>
+
+              <th class="p-4">
+                Entregas
+              </th>
+
+              <th class="p-4">
+                GPS
+              </th>
+
+              <th class="p-4 text-right">
+                Ações
+              </th>
+
             </tr>
+
           </thead>
+
+
           <tbody class="divide-y divide-slate-100">
+
             <% if (drivers && drivers.length > 0) { %>
+
               <% drivers.forEach(driver => { %>
-                <tr class="hover:bg-slate-50 transition-colors">
-                  <td class="p-4 font-semibold text-slate-800"><%= driver.name %></td>
-                  <td class="p-4 text-slate-600"><%= driver.phone %></td>
+
+                <tr class="<%= driver.active ? 'hover:bg-slate-50' : 'bg-slate-50 opacity-70' %> transition-colors">
+
+                  <!-- ENTREGADOR -->
+                  <td class="p-4">
+
+                    <div class="font-semibold text-slate-800">
+                      <%= driver.name %>
+                    </div>
+
+                    <div class="text-xs text-slate-500 mt-1">
+                      <i class="fas fa-phone mr-1"></i>
+                      <%= driver.phone %>
+                    </div>
+
+                    <% if (!driver.active) { %>
+
+                      <span class="inline-flex mt-2 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-600">
+                        Desativado
+                      </span>
+
+                    <% } %>
+
+                  </td>
+
+
+                  <!-- VEÍCULO -->
                   <td class="p-4 text-slate-600">
-                    <%= driver.vehicle || '-' %>
+
+                    <div>
+                      <%= driver.vehicle || '-' %>
+                    </div>
+
                     <% if (driver.plate) { %>
-                      <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono ml-1"><%= driver.plate %></span>
-                    <% } %>
-                  </td>
-                  <td class="p-4 font-medium text-blue-600"><%= driver._count.deliveries %> entregas</td>
-                  <td class="p-4 text-center">
-                    <% if (driver.latitude && driver.longitude) { %>
-                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Ativo
+
+                      <span class="inline-block mt-1 text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono">
+                        <%= driver.plate %>
                       </span>
+
+                    <% } %>
+
+                  </td>
+
+
+                  <!-- STATUS OPERACIONAL -->
+                  <td class="p-4">
+
+                    <% if (driver.status === 'AVAILABLE') { %>
+
+                      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+                        Disponível
+                      </span>
+
+                    <% } else if (driver.status === 'BUSY') { %>
+
+                      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
+                        Ocupado
+                      </span>
+
                     <% } else { %>
-                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
-                        Sem Sinal
+
+                      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+                        Offline
                       </span>
+
                     <% } %>
+
                   </td>
+
+
+                  <!-- ENTREGAS -->
+                  <td class="p-4">
+
+                    <span class="font-semibold text-blue-600">
+                      <%= driver._count.deliveries %>
+                    </span>
+
+                    <span class="text-slate-500 text-xs">
+                      entrega(s)
+                    </span>
+
+                  </td>
+
+
+                  <!-- GPS -->
+                  <td class="p-4">
+
+                    <% if (
+                      driver.latitude !== null &&
+                      driver.longitude !== null
+                    ) { %>
+
+                      <div class="space-y-1">
+
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+
+                          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+
+                          Com sinal
+
+                        </span>
+
+                        <% if (driver.lastLocationAt) { %>
+
+                          <div class="text-xs text-slate-400">
+                            <%= new Date(driver.lastLocationAt).toLocaleString('pt-BR') %>
+                          </div>
+
+                        <% } %>
+
+                      </div>
+
+                    <% } else { %>
+
+                      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
+                        Sem sinal
+                      </span>
+
+                    <% } %>
+
+                  </td>
+
+
+                  <!-- AÇÕES -->
+                  <td class="p-4">
+
+                    <div class="flex items-center justify-end gap-2">
+
+                      <!-- EDITAR -->
+                      <button
+                        type="button"
+                        onclick='openDriverModal(<%- JSON.stringify({
+                          id: driver.id,
+                          name: driver.name,
+                          phone: driver.phone,
+                          vehicle: driver.vehicle || "",
+                          plate: driver.plate || "",
+                          vehicleInfo: driver.vehicleInfo || "",
+                          status: driver.status
+                        }) %>)'
+                        title="Editar entregador"
+                        class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all"
+                      >
+                        <i class="fas fa-pen"></i>
+                      </button>
+
+
+                      <!-- MAPA -->
+                      <% if (
+                        driver.latitude !== null &&
+                        driver.longitude !== null
+                      ) { %>
+
+                        <a
+                          href="/api/gps/map/<%= encodeURIComponent(driver.phone) %>"
+                          target="_blank"
+                          title="Ver no mapa"
+                          class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all"
+                        >
+                          <i class="fas fa-map-marker-alt"></i>
+                        </a>
+
+                      <% } %>
+
+
+                      <!-- ATIVAR / DESATIVAR -->
+                      <form
+                        action="/dashboard/drivers/<%= driver.id %>/toggle-active"
+                        method="POST"
+                        onsubmit="return confirmToggleDriver('<%= driver.name.replace(/'/g, "\\'") %>', <%= driver.active ? 'true' : 'false' %>);"
+                      >
+
+                        <button
+                          type="submit"
+                          title="<%= driver.active ? 'Desativar entregador' : 'Ativar entregador' %>"
+                          class="inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-all <%= driver.active
+                            ? 'border-red-200 text-red-500 hover:bg-red-50'
+                            : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                          %>"
+                        >
+
+                          <i class="fas <%= driver.active ? 'fa-user-slash' : 'fa-user-check' %>"></i>
+
+                        </button>
+
+                      </form>
+
+                    </div>
+
+                  </td>
+
                 </tr>
+
               <% }) %>
+
             <% } else { %>
+
               <tr>
-                <td colspan="5" class="p-8 text-center text-slate-400">Nenhum entregador cadastrado ainda.</td>
+
+                <td
+                  colspan="6"
+                  class="p-8 text-center text-slate-400"
+                >
+
+                  <i class="fas fa-motorcycle text-3xl mb-3 block"></i>
+
+                  Nenhum entregador cadastrado ainda.
+
+                </td>
+
               </tr>
+
             <% } %>
+
           </tbody>
+
         </table>
+
       </div>
+
     </div>
+
   </div>
+
 </div>
+
+
+<!-- ===================================================== -->
+<!-- MODAL DE EDIÇÃO -->
+<!-- ===================================================== -->
+
+<div
+  id="driverEditModal"
+  class="fixed inset-0 z-50 hidden"
+>
+
+  <!-- FUNDO -->
+  <div
+    class="absolute inset-0 bg-slate-900/50"
+    onclick="closeDriverModal()"
+  ></div>
+
+
+  <!-- MODAL -->
+  <div class="relative min-h-screen flex items-center justify-center p-4">
+
+    <div class="relative bg-white w-full max-w-lg rounded-xl shadow-xl border border-slate-200">
+
+      <!-- CABEÇALHO -->
+      <div class="flex items-center justify-between p-5 border-b border-slate-100">
+
+        <div>
+
+          <h2 class="text-lg font-bold text-slate-800">
+            Editar Entregador
+          </h2>
+
+          <p class="text-xs text-slate-500 mt-1">
+            Atualize os dados cadastrais e o status operacional.
+          </p>
+
+        </div>
+
+
+        <button
+          type="button"
+          onclick="closeDriverModal()"
+          class="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all"
+        >
+          <i class="fas fa-times"></i>
+        </button>
+
+      </div>
+
+
+      <!-- FORMULÁRIO -->
+      <form
+        id="driverEditForm"
+        method="POST"
+        class="p-5 space-y-4"
+      >
+
+        <div>
+
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+            Nome Completo
+          </label>
+
+          <input
+            id="editDriverName"
+            type="text"
+            name="name"
+            required
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+
+        </div>
+
+
+        <div>
+
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+            Telefone / WhatsApp
+          </label>
+
+          <input
+            id="editDriverPhone"
+            type="text"
+            name="phone"
+            required
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+
+        </div>
+
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div>
+
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+              Veículo
+            </label>
+
+            <input
+              id="editDriverVehicle"
+              type="text"
+              name="vehicle"
+              class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+
+          </div>
+
+
+          <div>
+
+            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+              Placa
+            </label>
+
+            <input
+              id="editDriverPlate"
+              type="text"
+              name="plate"
+              class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+
+          </div>
+
+        </div>
+
+
+        <div>
+
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+            Informações do Veículo
+          </label>
+
+          <textarea
+            id="editDriverVehicleInfo"
+            name="vehicleInfo"
+            rows="3"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+          ></textarea>
+
+        </div>
+
+
+        <div>
+
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+            Status Operacional
+          </label>
+
+          <select
+            id="editDriverStatus"
+            name="status"
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+          >
+
+            <option value="AVAILABLE">
+              Disponível
+            </option>
+
+            <option value="BUSY">
+              Ocupado
+            </option>
+
+            <option value="OFFLINE">
+              Offline
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+
+          <button
+            type="button"
+            onclick="closeDriverModal()"
+            class="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-semibold transition-all"
+          >
+            Cancelar
+          </button>
+
+
+          <button
+            type="submit"
+            class="px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm transition-all flex items-center gap-2"
+          >
+            <i class="fas fa-save"></i>
+            Salvar Alterações
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+  function openDriverModal(driver) {
+
+    const modal =
+      document.getElementById(
+        "driverEditModal"
+      );
+
+    const form =
+      document.getElementById(
+        "driverEditForm"
+      );
+
+    form.action =
+      `/dashboard/drivers/${encodeURIComponent(driver.id)}`;
+
+    document.getElementById(
+      "editDriverName"
+    ).value =
+      driver.name || "";
+
+    document.getElementById(
+      "editDriverPhone"
+    ).value =
+      driver.phone || "";
+
+    document.getElementById(
+      "editDriverVehicle"
+    ).value =
+      driver.vehicle || "";
+
+    document.getElementById(
+      "editDriverPlate"
+    ).value =
+      driver.plate || "";
+
+    document.getElementById(
+      "editDriverVehicleInfo"
+    ).value =
+      driver.vehicleInfo || "";
+
+    document.getElementById(
+      "editDriverStatus"
+    ).value =
+      driver.status || "AVAILABLE";
+
+    modal.classList.remove(
+      "hidden"
+    );
+
+    document.body.classList.add(
+      "overflow-hidden"
+    );
+
+  }
+
+
+  function closeDriverModal() {
+
+    const modal =
+      document.getElementById(
+        "driverEditModal"
+      );
+
+    modal.classList.add(
+      "hidden"
+    );
+
+    document.body.classList.remove(
+      "overflow-hidden"
+    );
+
+  }
+
+
+  function confirmToggleDriver(
+    name,
+    active
+  ) {
+
+    if (active) {
+
+      return confirm(
+        `Deseja desativar o entregador "${name}"?\n\nO histórico de entregas e localizações será preservado.`
+      );
+
+    }
+
+    return confirm(
+      `Deseja ativar novamente o entregador "${name}"?`
+    );
+
+  }
+
+
+  /*
+   * ESC fecha o modal.
+   */
+  document.addEventListener(
+    "keydown",
+    function(event) {
+
+      if (
+        event.key ===
+        "Escape"
+      ) {
+
+        closeDriverModal();
+
+      }
+
+    }
+  );
+
+</script>
