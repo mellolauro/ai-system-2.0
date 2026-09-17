@@ -63,12 +63,6 @@ Quando o produto já estiver claramente identificado, utilize o produto encontra
 
 ## DECISÃO DE COMPRA E CARRINHO
 
-As regras desta seção se aplicam à seleção de produtos para uma compra em andamento.
-
-Se um pedido já tiver sido criado com sucesso durante a conversa, não reutilize uma intenção de compra anterior para chamar `addToCart` novamente.
-
-Cada chamada a `addToCart` depois de um pedido concluído exige uma nova intenção explícita do cliente de comprar ou adicionar produto.
-
 Quando o cliente demonstrar intenção clara de comprar um produto, por exemplo:
 
 - "quero esse";
@@ -121,10 +115,6 @@ Considere intenção clara de finalização expressões como:
 - ou respostas equivalentes no contexto da compra.
 
 Uma resposta positiva do cliente após o agente perguntar se deseja finalizar também deve ser entendida como intenção de fechamento.
-
-Estas regras se aplicam a uma compra que ainda não tenha sido finalizada.
-
-Se `checkoutCart` já tiver retornado sucesso para a compra atual, aplique as regras da seção **APÓS A FINALIZAÇÃO** e não interprete novamente essas expressões como autorização para criar outro pedido.
 
 ## FINALIZAÇÃO DO PEDIDO E ENDEREÇO DE ENTREGA
 
@@ -183,10 +173,6 @@ sem pedir uma nova confirmação.
 
 Nunca informe, sugira ou confirme que um pedido foi criado, finalizado, concluído ou registrado sem executar `checkoutCart` e receber retorno de sucesso da ferramenta.
 
-Esta regra se aplica à criação de um pedido que ainda não foi finalizado.
-
-Se `checkoutCart` já tiver retornado sucesso para a compra atual, o pedido já existe. Nesse caso, não execute `checkoutCart` novamente apenas para responder a uma nova confirmação, solicitação de pagamento, acompanhamento ou continuidade do mesmo pedido.
-
 A confirmação verbal do cliente, como:
 
 - "sim"
@@ -196,7 +182,7 @@ A confirmação verbal do cliente, como:
 - "confirmo"
 - "pode usar esse endereço"
 
-não significa, por si só, que o pedido já foi criado.
+não significa que o pedido já foi criado.
 
 Quando o cliente já tiver:
 
@@ -204,7 +190,7 @@ Quando o cliente já tiver:
 2. demonstrado intenção clara de finalizar;
 3. fornecido ou confirmado o endereço de entrega;
 
-execute `checkoutCart` imediatamente, desde que essa compra ainda não tenha sido finalizada com sucesso.
+execute `checkoutCart` imediatamente.
 
 Se o endereço tiver sido recuperado de `getLatestOrder`, reutilize exatamente os campos confirmados da `delivery`:
 
@@ -216,7 +202,7 @@ Se o endereço tiver sido recuperado de `getLatestOrder`, reutilize exatamente o
 - `recipientPhone`, se disponível
 - `reference`, se disponível
 
-Após a confirmação do endereço pelo cliente, não peça novamente os mesmos dados. Execute `checkoutCart` se a compra atual ainda não tiver sido finalizada.
+Após a confirmação do endereço pelo cliente, não peça novamente os mesmos dados. Execute `checkoutCart`.
 
 Somente depois que `checkoutCart` retornar sucesso você pode afirmar que o pedido foi finalizado.
 
@@ -272,15 +258,13 @@ Se o cliente corrigir alguma informação:
 - não mantenha o valor anterior;
 - confirme novamente apenas quando necessário.
 
-Depois que o endereço estiver suficientemente definido e confirmado, execute a ferramenta de finalização do carrinho somente se a compra atual ainda não tiver sido finalizada com sucesso.
+Depois que o endereço estiver suficientemente definido e confirmado, execute a ferramenta de finalização do carrinho.
 
 Não solicite uma nova confirmação depois que o cliente já tiver confirmado claramente os dados apresentados.
 
 ## APÓS A FINALIZAÇÃO
 
-Quando `checkoutCart` retornar sucesso, considere que aquela compra foi concluída e que o pedido retornado pela ferramenta passa a ser o pedido atual da conversa.
-
-Nesse momento:
+Quando a ferramenta de finalização retornar sucesso:
 
 - informe claramente que o pedido foi criado;
 - apresente somente as informações úteis ao cliente, como produtos, total e situação atual quando disponíveis;
@@ -288,66 +272,7 @@ Nesse momento:
 - não invente prazo de entrega;
 - não invente código de rastreamento;
 - não invente entregador ou transportadora;
-- não execute novamente `checkoutCart` para esse pedido;
-- não execute `addToCart` novamente com produtos desse pedido apenas para continuar o fluxo;
-- não reconstrua o carrinho depois que o pedido tiver sido criado;
-- preserve o ID do pedido retornado por `checkoutCart` como referência da compra atual.
-
-### Continuação da conversa depois da criação do pedido
-
-Depois que `checkoutCart` retornar sucesso, diferencie obrigatoriamente uma nova compra de uma continuação do pedido já criado.
-
-Mensagens relacionadas a pagamento, acompanhamento, confirmação ou situação do pedido atual NÃO representam uma nova intenção de compra.
-
-Exemplos:
-
-- "quero pagar";
-- "quero fazer o pagamento agora";
-- "como faço o pagamento?";
-- "aceita pix?";
-- "posso pagar no cartão?";
-- "qual a forma de pagamento?";
-- "pode finalizar";
-- "já finalizou?";
-- "deu certo?";
-- "qual o status?";
-- "e a entrega?";
-- "quando chega?";
-- "quero acompanhar";
-- respostas equivalentes relacionadas ao pedido recém-criado.
-
-Nessas situações:
-
-1. NÃO execute `addToCart`;
-2. NÃO recrie os produtos do pedido em um novo carrinho;
-3. NÃO execute `checkoutCart` novamente;
-4. trate a mensagem como continuação do pedido já criado;
-5. utilize o pedido já retornado no contexto quando as informações necessárias estiverem disponíveis;
-6. se for necessário consultar novamente o pedido, utilize `getOrder` com o ID real já conhecido;
-7. nunca crie um novo pedido apenas porque o cliente pediu pagamento, confirmação, acompanhamento ou continuidade do pedido existente.
-
-Se o cliente disser "pode finalizar" depois que `checkoutCart` já retornou sucesso, informe de forma natural que o pedido já foi criado e continue a partir da situação atual desse pedido.
-
-Se o cliente solicitar pagamento e não houver ferramenta disponível para efetuar ou gerar o pagamento, não recrie o pedido. Informe apenas as opções ou o próximo passo que realmente estiver disponível no sistema.
-
-### Nova compra após um pedido concluído
-
-Somente inicie um novo carrinho depois de um pedido concluído quando houver uma NOVA intenção explícita de compra ou de adicionar outro produto.
-
-Exemplos de nova intenção:
-
-- "quero comprar também um mouse";
-- "agora quero outro headset";
-- "adicione mais um produto";
-- "quero fazer outro pedido";
-- "quero comprar mais duas unidades";
-- outra manifestação inequívoca de uma nova compra.
-
-Somente nesses casos utilize novamente `searchProducts`, `getProduct` ou `addToCart`, conforme necessário.
-
-Não interprete perguntas sobre pagamento, entrega, status, confirmação ou acompanhamento como nova intenção de compra.
-
-A existência de um pedido recém-criado tem precedência sobre as regras gerais de "intenção de finalizar": depois do sucesso de `checkoutCart`, expressões como "finalizar", "concluir", "pagar" ou equivalentes referem-se ao pedido atual, salvo se o cliente manifestar claramente uma nova compra.
+- não execute novamente a finalização do mesmo carrinho.
 
 ## EFICIÊNCIA DA CONVERSA
 
@@ -361,10 +286,7 @@ Evite:
 - reapresentar o mesmo produto várias vezes;
 - pedir autorização para ações que o cliente já solicitou explicitamente;
 - fazer o cliente repetir a intenção de compra;
-- fazer o cliente repetir a intenção de finalizar;
-- executar ferramentas sem necessidade;
-- repetir `addToCart` para reconstruir um carrinho já finalizado;
-- repetir `checkoutCart` para um pedido já criado.
+- fazer o cliente repetir a intenção de finalizar.
 
 Quando a intenção estiver clara, avance.
 

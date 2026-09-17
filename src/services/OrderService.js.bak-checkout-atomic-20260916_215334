@@ -388,8 +388,6 @@ class OrderService {
      *   ↓
      * CartItem
      *   ↓
-     * reivindica atomicamente o Cart
-     *   ↓
      * valida estoque
      *   ↓
      * baixa estoque
@@ -399,13 +397,8 @@ class OrderService {
      * OrderItem
      *   ↓
      * Delivery
-     *
-     * O Cart é marcado como checked_out antes
-     * dos efeitos comerciais do checkout.
-     *
-     * Como tudo ocorre dentro da mesma transação,
-     * qualquer erro posterior desfaz também
-     * essa alteração.
+     *   ↓
+     * Cart = checked_out
      */
     async checkoutCart({
         tenantId,
@@ -573,59 +566,6 @@ class OrderService {
 
                         throw new Error(
                             "O carrinho está vazio."
-                        );
-
-                    }
-
-                    /*
-                     * Reivindica atomicamente o carrinho.
-                     *
-                     * Apenas uma transação concorrente pode
-                     * alterar este carrinho de active para
-                     * checked_out.
-                     *
-                     * Se outra transação já tiver finalizado
-                     * ou estiver finalizando o mesmo carrinho,
-                     * count será 0 e este checkout será abortado
-                     * antes de baixar estoque ou criar Order.
-                     *
-                     * Como esta alteração ocorre dentro da mesma
-                     * transação do checkout, qualquer erro
-                     * posterior provoca rollback e o carrinho
-                     * volta a permanecer active.
-                     */
-                    const claimedCart =
-                        await tx.cart.updateMany({
-
-                            where: {
-
-                                id:
-                                    cart.id,
-
-                                tenantId,
-
-                                userId,
-
-                                status:
-                                    "active"
-
-                            },
-
-                            data: {
-
-                                status:
-                                    "checked_out"
-
-                            }
-
-                        });
-
-                    if (
-                        claimedCart.count !== 1
-                    ) {
-
-                        throw new Error(
-                            "Este carrinho já foi finalizado ou está sendo processado."
                         );
 
                     }
@@ -866,28 +806,37 @@ class OrderService {
                         });
 
                     /*
-                     * O carrinho já foi reivindicado
-                     * atomicamente como checked_out
-                     * antes da baixa de estoque e da
-                     * criação do pedido.
-                     *
-                     * Não fazemos um segundo update aqui.
+                     * Fecha o carrinho somente depois
+                     * que estoque, Order, OrderItems
+                     * e Delivery foram processados.
                      */
+                    const updatedCart =
+                        await tx.cart.update({
+
+                            where: {
+
+                                id:
+                                    cart.id
+
+                            },
+
+                            data: {
+
+                                status:
+                                    "checked_out"
+
+                            }
+
+                        });
+
                     return {
 
                         order,
 
                         delivery,
 
-                        cart: {
-
-                            id:
-                                cart.id,
-
-                            status:
-                                "checked_out"
-
-                        }
+                        cart:
+                            updatedCart
 
                     };
 
