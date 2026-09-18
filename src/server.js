@@ -1,12 +1,16 @@
 require("dotenv").config();
 
 const express = require("express");
+const session = require("express-session");
+const { Pool } = require("pg");
+const pgSession = require("connect-pg-simple")(session);
 const path = require("path");
 const expressLayouts = require("express-ejs-layouts");
 const os = require("os");
 
 const prisma = require("./prisma");
 const bootstrap = require("./bootstrap");
+const requireAuth = require("./middleware/requireAuth");
 
 const {
     initTelegram,
@@ -46,6 +50,60 @@ app.use(express.json());
 app.use(
     express.urlencoded({
         extended: true
+    })
+);
+
+/*
+ * ============================================================
+ * SESSION
+ * ============================================================
+ */
+
+/*
+ * O AI-System recebe conexões HTTPS através do
+ * Tailscale Funnel, que atua como reverse proxy.
+ *
+ * Necessário para que o Express reconheça corretamente
+ * o protocolo original da requisição.
+ */
+app.set("trust proxy", 1);
+
+if (!process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET não configurado.");
+}
+
+if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL não configurado.");
+}
+
+const sessionPool = new Pool({
+    connectionString: process.env.DATABASE_URL
+});
+
+const sessionStore = new pgSession({
+    pool: sessionPool,
+    tableName: "session",
+    createTableIfMissing: false
+});
+
+app.use(
+    session({
+        name: "ai_system_session",
+
+        store: sessionStore,
+
+        secret: process.env.SESSION_SECRET,
+
+        resave: false,
+
+        saveUninitialized: false,
+
+        cookie: {
+            httpOnly: true,
+            secure: "auto",
+            sameSite: "lax",
+            maxAge: 8 * 60 * 60 * 1000
+        }
     })
 );
 
@@ -104,32 +162,47 @@ app.use(
 
 /*
  * ============================================================
+ * AUTH
+ * ============================================================
+ */
+
+app.use(
+    require("./routes/auth")
+);
+
+/*
+ * ============================================================
  * ROUTES
  * ============================================================
  */
 
 app.use(
     "/dashboard",
+    requireAuth,
     require("./routes/dashboard")
 );
 
 app.use(
     "/products",
+    requireAuth,
     require("./routes/products")
 );
 
 app.use(
     "/tenants",
+    requireAuth,
     require("./routes/tenants")
 );
 
 app.use(
     "/users",
+    requireAuth,
     require("./routes/users")
 );
 
 app.use(
     "/orders",
+    requireAuth,
     require("./routes/orders")
 );
 
