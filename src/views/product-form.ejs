@@ -57,6 +57,7 @@
             name="price" 
             type="number" 
             step="0.01" 
+            min="0"
             value="<%= isEdit ? product.price : '' %>" 
             placeholder="0,00" 
             class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-800 text-sm font-semibold" 
@@ -68,12 +69,28 @@
           <input 
             name="stock" 
             type="number" 
+            min="0"
+            step="1"
             value="<%= isEdit ? product.stock : 0 %>" 
             placeholder="0" 
             class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-800 text-sm font-semibold" 
             required
           >
         </div>
+      </div>
+
+      <!-- Preço de Custo -->
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Preço de Custo (R$)</label>
+        <input
+          name="costPrice"
+          type="number"
+          step="0.01"
+          min="0"
+          value="<%= isEdit && product.costPrice != null ? product.costPrice : '' %>"
+          placeholder="0,00"
+          class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-800 text-sm font-semibold"
+        >
       </div>
 
       <!-- Tenant -->

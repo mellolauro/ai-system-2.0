@@ -8,6 +8,24 @@
     </a>
 </div>
 
+<% if (query && query.error === "invalid_price") { %>
+    <div class="mb-6 p-4 rounded-lg border border-red-200 bg-red-50 text-red-800">
+        Informe um preço de venda válido, maior ou igual a zero.
+    </div>
+<% } %>
+
+<% if (query && query.error === "invalid_cost_price") { %>
+    <div class="mb-6 p-4 rounded-lg border border-red-200 bg-red-50 text-red-800">
+        Informe um preço de custo válido, maior ou igual a zero.
+    </div>
+<% } %>
+
+<% if (query && query.error === "invalid_stock") { %>
+    <div class="mb-6 p-4 rounded-lg border border-red-200 bg-red-50 text-red-800">
+        Informe um estoque inteiro, maior ou igual a zero.
+    </div>
+<% } %>
+
 <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
     <table class="w-full text-left border-collapse">
 

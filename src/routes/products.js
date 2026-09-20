@@ -4,6 +4,70 @@ const router = express.Router();
 const prisma = require("../prisma");
 const upload = require("../config/upload");
 
+function getProductValidationError(error) {
+  const errors = {
+    INVALID_PRODUCT_PRICE: "invalid_price",
+    INVALID_PRODUCT_COST_PRICE: "invalid_cost_price",
+    INVALID_PRODUCT_STOCK: "invalid_stock"
+  };
+
+  return errors[error?.message] || null;
+}
+
+function parseProductNumbers({ price, costPrice, stock }) {
+  const normalizedPrice = String(price ?? "")
+    .trim()
+    .replace(",", ".");
+
+  const normalizedCostPrice =
+    costPrice === undefined ||
+    costPrice === null ||
+    String(costPrice).trim() === ""
+      ? null
+      : String(costPrice).trim().replace(",", ".");
+
+  const normalizedStock = String(stock ?? "").trim();
+
+  const parsedPrice = Number(normalizedPrice);
+  const parsedCostPrice =
+    normalizedCostPrice === null
+      ? null
+      : Number(normalizedCostPrice);
+  const parsedStock = Number(normalizedStock);
+
+  if (
+    normalizedPrice === "" ||
+    !Number.isFinite(parsedPrice) ||
+    parsedPrice < 0
+  ) {
+    throw new Error("INVALID_PRODUCT_PRICE");
+  }
+
+  if (
+    parsedCostPrice !== null &&
+    (
+      !Number.isFinite(parsedCostPrice) ||
+      parsedCostPrice < 0
+    )
+  ) {
+    throw new Error("INVALID_PRODUCT_COST_PRICE");
+  }
+
+  if (
+    normalizedStock === "" ||
+    !Number.isInteger(parsedStock) ||
+    parsedStock < 0
+  ) {
+    throw new Error("INVALID_PRODUCT_STOCK");
+  }
+
+  return {
+    price: parsedPrice,
+    costPrice: normalizedCostPrice,
+    stock: parsedStock
+  };
+}
+
 // ======================
 // LISTAR PRODUTOS
 // ======================
@@ -13,7 +77,10 @@ router.get("/", async (req, res) => {
     include: { images: true }
   });
 
-  res.render("products", { products });
+  res.render("products", {
+    products,
+    query: req.query
+  });
 
 });
 
@@ -37,15 +104,29 @@ router.post("/create", upload.single("image"), async (req, res) => {
 
   try {
 
-    const { name, description, price, stock, tenantId } = req.body;
+    const {
+      name,
+      description,
+      price,
+      costPrice,
+      stock,
+      tenantId
+    } = req.body;
+
+    const productNumbers = parseProductNumbers({
+      price,
+      costPrice,
+      stock
+    });
 
     const product = await prisma.product.create({
 
       data: {
         name,
         description,
-        price: parseFloat(price),
-        stock: parseInt(stock),
+        price: productNumbers.price,
+        costPrice: productNumbers.costPrice,
+        stock: productNumbers.stock,
         tenantId
       }
 
@@ -68,8 +149,19 @@ router.post("/create", upload.single("image"), async (req, res) => {
 
   } catch (error) {
 
-    console.error(error);
-    res.status(500).send("Erro ao criar produto");
+    const validationError =
+      getProductValidationError(error);
+
+    if (validationError) {
+      return res.redirect(
+        `/products?error=${validationError}`
+      );
+    }
+
+    console.error("Erro ao criar produto:", error);
+    return res.status(500).send(
+      "Erro interno ao criar produto"
+    );
 
   }
 
@@ -93,15 +185,29 @@ router.get("/edit/:id", async (req, res) => {
 // UPDATE
 router.post("/update/:id", upload.single("image"), async (req, res) => {
   try {
-    const { name, description, price, stock, tenantId } = req.body;
+    const {
+      name,
+      description,
+      price,
+      costPrice,
+      stock,
+      tenantId
+    } = req.body;
+
+    const productNumbers = parseProductNumbers({
+      price,
+      costPrice,
+      stock
+    });
 
     const product = await prisma.product.update({
       where: { id: req.params.id },
       data: {
         name,
         description,
-        price: parseFloat(price),
-        stock: parseInt(stock),
+        price: productNumbers.price,
+        costPrice: productNumbers.costPrice,
+        stock: productNumbers.stock,
         tenantId
       }
     });
@@ -117,8 +223,19 @@ router.post("/update/:id", upload.single("image"), async (req, res) => {
 
     res.redirect("/products");
   } catch (error) {
-    console.error(error);
-    res.status(500).send("Erro ao atualizar produto");
+    const validationError =
+      getProductValidationError(error);
+
+    if (validationError) {
+      return res.redirect(
+        `/products?error=${validationError}`
+      );
+    }
+
+    console.error("Erro ao atualizar produto:", error);
+    return res.status(500).send(
+      "Erro interno ao atualizar produto"
+    );
   }
 });
 
