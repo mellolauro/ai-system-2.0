@@ -82,6 +82,9 @@ model User {
   avatarUrl  String? // URL da imagem de perfil
   role       UserRole @default(USER)
 
+  passwordHash      String?
+  passwordChangedAt DateTime?
+
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
