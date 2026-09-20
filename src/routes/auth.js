@@ -1,5 +1,6 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const { rateLimit } = require("express-rate-limit");
 
 const {
@@ -51,7 +52,11 @@ router.get(
             "login",
             {
                 layout: false,
-                error: null
+                error: null,
+                success:
+                    req.query.passwordReset === "1"
+                        ? "Senha redefinida com sucesso. Entre com a nova senha."
+                        : null
             }
         );
     }
@@ -119,7 +124,8 @@ router.post(
                     "login",
                     {
                         layout: false,
-                        error: "Usuário ou senha inválidos."
+                        error: "Usuário ou senha inválidos.",
+                        success: null
                     }
                 );
             }
@@ -394,6 +400,350 @@ router.post(
                 }
             );
         } catch (err) {
+            return next(err);
+        }
+    }
+);
+
+/*
+ * ============================================================
+ * PASSWORD RECOVERY
+ * ============================================================
+ */
+
+const resetPasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message:
+        "Muitas tentativas de recuperação. Aguarde 15 minutos e tente novamente."
+});
+
+function hashResetToken(token) {
+    return crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex");
+}
+
+function renderResetPassword(
+    res,
+    {
+        status = 200,
+        token = "",
+        error = null
+    } = {}
+) {
+    return res.status(status).render(
+        "reset-password",
+        {
+            layout: false,
+            token,
+            error
+        }
+    );
+}
+
+router.get(
+    "/forgot-password",
+    (req, res) => {
+        return res.render(
+            "forgot-password",
+            {
+                layout: false
+            }
+        );
+    }
+);
+
+router.get(
+    "/reset-password",
+    exposeCsrfToken,
+    async (req, res, next) => {
+        const token =
+            typeof req.query.token === "string"
+                ? req.query.token
+                : "";
+
+        try {
+            if (!token) {
+                return renderResetPassword(
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "Link de recuperação inválido ou incompleto."
+                    }
+                );
+            }
+
+            const tokenHash =
+                hashResetToken(token);
+
+            const resetToken =
+                await prisma.passwordResetToken.findUnique({
+                    where: {
+                        tokenHash
+                    },
+                    select: {
+                        id: true,
+                        usedAt: true,
+                        expiresAt: true
+                    }
+                });
+
+            if (
+                !resetToken ||
+                resetToken.usedAt ||
+                resetToken.expiresAt <= new Date()
+            ) {
+                return renderResetPassword(
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "Este link de recuperação é inválido ou expirou."
+                    }
+                );
+            }
+
+            return renderResetPassword(
+                res,
+                {
+                    token
+                }
+            );
+        } catch (err) {
+            return next(err);
+        }
+    }
+);
+
+router.post(
+    "/reset-password",
+    exposeCsrfToken,
+    resetPasswordLimiter,
+    csrfSynchronisedProtection,
+    async (req, res, next) => {
+        const {
+            token,
+            newPassword,
+            confirmPassword
+        } = req.body;
+
+        try {
+            if (
+                typeof token !== "string" ||
+                typeof newPassword !== "string" ||
+                typeof confirmPassword !== "string" ||
+                !token
+            ) {
+                return renderResetPassword(
+                    res,
+                    {
+                        status: 400,
+                        token:
+                            typeof token === "string"
+                                ? token
+                                : "",
+                        error:
+                            "Solicitação de recuperação inválida."
+                    }
+                );
+            }
+
+            if (
+                newPassword !==
+                confirmPassword
+            ) {
+                return renderResetPassword(
+                    res,
+                    {
+                        status: 400,
+                        token,
+                        error:
+                            "A confirmação da nova senha não confere."
+                    }
+                );
+            }
+
+            if (newPassword.length < 12) {
+                return renderResetPassword(
+                    res,
+                    {
+                        status: 400,
+                        token,
+                        error:
+                            "A nova senha deve ter pelo menos 12 caracteres."
+                    }
+                );
+            }
+
+            if (
+                Buffer.byteLength(
+                    newPassword,
+                    "utf8"
+                ) > 72
+            ) {
+                return renderResetPassword(
+                    res,
+                    {
+                        status: 400,
+                        token,
+                        error:
+                            "A nova senha excede o limite permitido."
+                    }
+                );
+            }
+
+            const tokenHash =
+                hashResetToken(token);
+
+            const resetToken =
+                await prisma.passwordResetToken.findUnique({
+                    where: {
+                        tokenHash
+                    },
+                    select: {
+                        id: true,
+                        userId: true,
+                        usedAt: true,
+                        expiresAt: true,
+                        user: {
+                            select: {
+                                id: true,
+                                role: true,
+                                tenantId: true,
+                                passwordHash: true
+                            }
+                        }
+                    }
+                });
+
+            if (
+                !resetToken ||
+                resetToken.usedAt ||
+                resetToken.expiresAt <= new Date() ||
+                !resetToken.user ||
+                resetToken.user.role !== "ADMIN" ||
+                resetToken.user.tenantId !==
+                    process.env.ADMIN_TENANT_ID
+            ) {
+                return renderResetPassword(
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "Este link de recuperação é inválido ou expirou."
+                    }
+                );
+            }
+
+            if (
+                resetToken.user.passwordHash &&
+                await bcrypt.compare(
+                    newPassword,
+                    resetToken.user.passwordHash
+                )
+            ) {
+                return renderResetPassword(
+                    res,
+                    {
+                        status: 400,
+                        token,
+                        error:
+                            "A nova senha deve ser diferente da senha atual."
+                    }
+                );
+            }
+
+            const newPasswordHash =
+                await bcrypt.hash(
+                    newPassword,
+                    12
+                );
+
+            const now = new Date();
+
+            await prisma.$transaction(
+                async tx => {
+                    const consumed =
+                        await tx.passwordResetToken.updateMany({
+                            where: {
+                                id:
+                                    resetToken.id,
+                                userId:
+                                    resetToken.userId,
+                                usedAt:
+                                    null,
+                                expiresAt: {
+                                    gt: now
+                                }
+                            },
+                            data: {
+                                usedAt: now
+                            }
+                        });
+
+                    if (consumed.count !== 1) {
+                        throw new Error(
+                            "RESET_TOKEN_ALREADY_CONSUMED"
+                        );
+                    }
+
+                    await tx.user.update({
+                        where: {
+                            id:
+                                resetToken.user.id
+                        },
+                        data: {
+                            passwordHash:
+                                newPasswordHash,
+                            passwordChangedAt:
+                                now
+                        }
+                    });
+
+                    await tx.passwordResetToken.updateMany({
+                        where: {
+                            userId:
+                                resetToken.user.id,
+                            usedAt:
+                                null
+                        },
+                        data: {
+                            usedAt:
+                                now
+                        }
+                    });
+
+                    await tx.$executeRaw`
+                        DELETE FROM "session"
+                        WHERE sess ->> 'userId' =
+                              ${resetToken.user.id}
+                    `;
+                }
+            );
+
+            return res.redirect(
+                "/login?passwordReset=1"
+            );
+        } catch (err) {
+            if (
+                err.message ===
+                "RESET_TOKEN_ALREADY_CONSUMED"
+            ) {
+                return renderResetPassword(
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "Este link de recuperação já foi utilizado."
+                    }
+                );
+            }
+
             return next(err);
         }
     }
