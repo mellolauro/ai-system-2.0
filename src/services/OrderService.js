@@ -209,11 +209,17 @@ class OrderService {
                     productId:
                         product.id,
 
+                    productName:
+                        product.name,
+
                     quantity:
                         item.quantity,
 
                     price:
-                        product.price
+                        product.price,
+
+                    costPrice:
+                        product.costPrice
 
                 };
 
@@ -676,11 +682,17 @@ class OrderService {
                                     productId:
                                         product.id,
 
+                                    productName:
+                                        product.name,
+
                                     quantity:
                                         item.quantity,
 
                                     price:
-                                        product.price
+                                        product.price,
+
+                                    costPrice:
+                                        product.costPrice
 
                                 };
 
@@ -1880,6 +1892,7 @@ class OrderService {
                                 item.productId,
 
                             productName:
+                                item.productName ||
                                 item.product?.name ||
                                 null,
 
