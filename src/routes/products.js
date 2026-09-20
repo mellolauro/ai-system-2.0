@@ -4,6 +4,10 @@ const router = express.Router();
 const prisma = require("../prisma");
 const upload = require("../config/upload");
 
+const {
+  csrfSynchronisedProtection
+} = require("../middleware/csrf");
+
 function getProductValidationError(error) {
   const errors = {
     INVALID_PRODUCT_PRICE: "invalid_price",
@@ -29,10 +33,12 @@ function parseProductNumbers({ price, costPrice, stock }) {
   const normalizedStock = String(stock ?? "").trim();
 
   const parsedPrice = Number(normalizedPrice);
+
   const parsedCostPrice =
     normalizedCostPrice === null
       ? null
       : Number(normalizedCostPrice);
+
   const parsedStock = Number(normalizedStock);
 
   if (
@@ -100,7 +106,11 @@ router.get("/new", async (req, res) => {
 // ======================
 // CRIAR PRODUTO
 // ======================
-router.post("/create", upload.single("image"), async (req, res) => {
+router.post(
+  "/create",
+  upload.single("image"),
+  csrfSynchronisedProtection,
+  async (req, res) => {
 
   try {
 
@@ -111,26 +121,26 @@ router.post("/create", upload.single("image"), async (req, res) => {
       costPrice,
       stock,
       tenantId
-    } = req.body;
+      } = req.body;
 
-    const productNumbers = parseProductNumbers({
-      price,
-      costPrice,
-      stock
-    });
+      const productNumbers = parseProductNumbers({
+        price,
+        costPrice,
+        stock
+      });
 
-    const product = await prisma.product.create({
+      const product = await prisma.product.create({
 
-      data: {
-        name,
-        description,
-        price: productNumbers.price,
-        costPrice: productNumbers.costPrice,
-        stock: productNumbers.stock,
-        tenantId
-      }
+        data: {
+          name,
+          description,
+          price: productNumbers.price,
+          costPrice: productNumbers.costPrice,
+          stock: productNumbers.stock,
+          tenantId
+        } 
 
-    });
+      });
 
     if (req.file) {
 
@@ -159,6 +169,7 @@ router.post("/create", upload.single("image"), async (req, res) => {
     }
 
     console.error("Erro ao criar produto:", error);
+
     return res.status(500).send(
       "Erro interno ao criar produto"
     );
@@ -183,7 +194,11 @@ router.get("/edit/:id", async (req, res) => {
 });
 
 // UPDATE
-router.post("/update/:id", upload.single("image"), async (req, res) => {
+router.post(
+  "/update/:id",
+  upload.single("image"),
+  csrfSynchronisedProtection,
+  async (req, res) => {
   try {
     const {
       name,
@@ -223,32 +238,177 @@ router.post("/update/:id", upload.single("image"), async (req, res) => {
 
     res.redirect("/products");
   } catch (error) {
-    const validationError =
-      getProductValidationError(error);
 
-    if (validationError) {
-      return res.redirect(
-        `/products?error=${validationError}`
+      const validationError =
+        getProductValidationError(error);
+
+      if (validationError) {
+        return res.redirect(
+          `/products?error=${validationError}`
+        );
+      }
+
+      console.error(
+        "Erro ao atualizar produto:",
+        error
       );
-    }
 
-    console.error("Erro ao atualizar produto:", error);
-    return res.status(500).send(
-      "Erro interno ao atualizar produto"
-    );
-  }
+      return res.status(500).send(
+        "Erro interno ao atualizar produto"
+      );
+
+    }
 });
+
+// REATIVAR
+router.post(
+  "/activate/:id",
+  csrfSynchronisedProtection,
+  async (req, res, next) => {
+
+    try {
+
+      const product = await prisma.product.findUnique({
+        where: {
+          id: req.params.id
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (!product) {
+        return res.redirect(
+          "/products?error=product_not_found"
+        );
+      }
+
+      await prisma.product.update({
+        where: {
+          id: product.id
+        },
+        data: {
+          active: true
+        }
+      });
+
+      return res.redirect(
+        "/products?success=product_activated"
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Erro ao reativar produto:",
+        error
+      );
+
+      return next(error);
+    }
+  }
+);
 
 // DELETE
-router.get("/delete/:id", async (req, res) => {
+router.post(
+  "/delete/:id",
+  csrfSynchronisedProtection,
+  async (req, res, next) => {
 
-  await prisma.product.delete({
-    where: { id: req.params.id }
-  });
+    try {
 
-  res.redirect("/products");
+      const productId = req.params.id;
 
-});
+      const product = await prisma.product.findUnique({
+        where: {
+          id: productId
+        },
+        select: {
+          id: true,
+          active: true,
+          _count: {
+            select: {
+              orderItems: true,
+              cartItems: true,
+              images: true
+            }
+          }
+        }
+      });
 
+      if (!product) {
+        return res.redirect(
+          "/products?error=product_not_found"
+        );
+      }
+
+      /*
+       * Produtos presentes em pedidos fazem parte
+       * do histórico comercial e não podem ser
+       * removidos fisicamente.
+       */
+      if (product._count.orderItems > 0) {
+
+        await prisma.$transaction([
+          prisma.cartItem.deleteMany({
+            where: {
+              productId
+            }
+          }),
+
+          prisma.product.update({
+            where: {
+              id: productId
+            },
+            data: {
+              active: false
+            }
+          })
+        ]);
+
+        return res.redirect(
+          "/products?success=product_deactivated"
+        );
+      }
+
+      /*
+       * Sem histórico de pedidos, as referências
+       * transitórias e imagens podem ser removidas
+       * junto com o produto.
+       */
+      await prisma.$transaction([
+        prisma.cartItem.deleteMany({
+          where: {
+            productId
+          }
+        }),
+
+        prisma.productImage.deleteMany({
+          where: {
+            productId
+          }
+        }),
+
+        prisma.product.delete({
+          where: {
+            id: productId
+          }
+        })
+      ]);
+
+      return res.redirect(
+        "/products?success=product_deleted"
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Erro ao excluir produto:",
+        error
+      );
+
+      return next(error);
+    }
+  }
+);
 
 module.exports = router;
