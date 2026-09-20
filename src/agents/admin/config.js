@@ -17,6 +17,7 @@ module.exports = {
         "orders.payment.update",
         "orders.ship",
         "orders.deliver",
-        "orders.cancel"
+        "orders.cancel",
+        "financial.read"
     ]
 };

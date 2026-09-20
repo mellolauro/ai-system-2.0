@@ -4,5 +4,6 @@ module.exports = [
     "updatePaymentStatus",
     "shipOrder",
     "deliverOrder",
-    "cancelOrder"
+    "cancelOrder",
+    "financialSummary"
 ];
