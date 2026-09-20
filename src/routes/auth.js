@@ -757,6 +757,7 @@ router.post(
 
 router.post(
     "/logout",
+    csrfSynchronisedProtection,
     (req, res, next) => {
         req.session.destroy(
             err => {
