@@ -1,6 +1,33 @@
 const express = require("express");
+const bcrypt = require("bcrypt");
+const { rateLimit } = require("express-rate-limit");
+
+const {
+    csrfSynchronisedProtection,
+    exposeCsrfToken
+} = require("../middleware/csrf");
+
+const prisma = require("../prisma");
 
 const router = express.Router();
+
+/*
+ * ============================================================
+ * LOGIN RATE LIMIT
+ * ============================================================
+ */
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+
+    skipSuccessfulRequests: true,
+
+    message: "Muitas tentativas de login. Aguarde 15 minutos e tente novamente."
+});
 
 /*
  * ============================================================
@@ -10,6 +37,7 @@ const router = express.Router();
 
 router.get(
     "/login",
+    exposeCsrfToken,
     (req, res) => {
         if (
             req.session &&
@@ -30,53 +58,98 @@ router.get(
 
 router.post(
     "/login",
-    (req, res, next) => {
+    exposeCsrfToken,
+    loginLimiter,
+    csrfSynchronisedProtection,
+    async (req, res, next) => {
         const {
             username,
             password
         } = req.body;
 
-        const validUser =
-            username === process.env.ADMIN_USER;
+        try {
+            const validUser =
+                username === process.env.ADMIN_USER;
 
-        const validPassword =
-            password === process.env.ADMIN_PASSWORD;
+            if (!process.env.ADMIN_TENANT_ID) {
+                throw new Error(
+                    "ADMIN_TENANT_ID não configurado."
+                );
+            }
 
-        if (
-            !validUser ||
-            !validPassword
-        ) {
-            return res.status(401).render(
-                "login",
-                {
-                    layout: false,
-                    error: "Usuário ou senha inválidos."
-                }
-            );
-        }
+            const adminUser =
+                await prisma.user.findFirst({
+                    where: {
+                        tenantId:
+                            process.env.ADMIN_TENANT_ID,
 
-        req.session.regenerate(
-            err => {
-                if (err) {
-                    return next(err);
-                }
+                        role:
+                            "ADMIN"
+                    },
 
-                req.session.authenticated = true;
-                req.session.username = username;
+                    select: {
+                        id: true,
+                        tenantId: true,
+                        passwordHash: true
+                    }
+                });
 
-                req.session.save(
-                    err => {
-                        if (err) {
-                            return next(err);
-                        }
+            if (
+                !adminUser ||
+                !adminUser.passwordHash
+            ) {
+                throw new Error(
+                    "Credencial administrativa não configurada no banco de dados."
+                );
+            }
 
-                        return res.redirect(
-                            "/dashboard"
-                        );
+            const validPassword =
+                typeof password === "string" &&
+                await bcrypt.compare(
+                    password,
+                    adminUser.passwordHash
+                );
+
+            if (
+                !validUser ||
+                !validPassword
+            ) {
+                return res.status(401).render(
+                    "login",
+                    {
+                        layout: false,
+                        error: "Usuário ou senha inválidos."
                     }
                 );
             }
-        );
+
+            req.session.regenerate(
+                err => {
+                    if (err) {
+                        return next(err);
+                    }
+
+                    req.session.authenticated = true;
+                    req.session.username = username;
+                    req.session.userId = adminUser.id;
+                    req.session.tenantId = adminUser.tenantId;
+
+                    req.session.save(
+                        err => {
+                            if (err) {
+                                return next(err);
+                            }
+
+                            return res.redirect(
+                                "/dashboard"
+                            );
+                        }
+                    );
+                }
+            );
+        } catch (err) {
+            return next(err);
+        }
     }
 );
 
