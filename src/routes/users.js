@@ -17,7 +17,10 @@ router.get("/", async (req, res, next) => {
       orderBy: { createdAt: "desc" }
     });
 
-    res.render("users", { users });
+    res.render("users", {
+      users,
+      query: req.query
+    });
   } catch (err) {
     next(err);
   }
@@ -113,15 +116,44 @@ router.post("/update/:id", async (req, res, next) => {
 // ==========================
 // DELETAR USUÁRIO
 // ==========================
-router.get("/delete/:id", async (req, res, next) => {
+router.post("/delete/:id", async (req, res, next) => {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: {
+        _count: {
+          select: {
+            orders: true,
+            memories: true,
+            carts: true,
+            conversations: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.redirect("/users?error=user_not_found");
+    }
+
+    const hasHistory =
+      user._count.orders > 0 ||
+      user._count.memories > 0 ||
+      user._count.carts > 0 ||
+      user._count.conversations > 0;
+
+    if (hasHistory) {
+      return res.redirect("/users?error=user_has_history");
+    }
+
     await prisma.user.delete({
       where: { id: req.params.id }
     });
 
-    res.redirect("/users");
+    return res.redirect("/users?success=user_deleted");
   } catch (err) {
-    next(err);
+    console.error("Erro ao excluir usuário:", err);
+    return next(err);
   }
 });
 

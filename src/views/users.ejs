@@ -8,6 +8,27 @@
   </a>
 </div>
 
+<% if (query && query.error === "user_has_history") { %>
+  <div class="mb-6 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+    <i class="fas fa-triangle-exclamation mr-2"></i>
+    Não é possível excluir este usuário porque ele possui histórico de pedidos, conversas ou outros dados vinculados.
+  </div>
+<% } %>
+
+<% if (query && query.error === "user_not_found") { %>
+  <div class="mb-6 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+    <i class="fas fa-circle-exclamation mr-2"></i>
+    Usuário não encontrado.
+  </div>
+<% } %>
+
+<% if (query && query.success === "user_deleted") { %>
+  <div class="mb-6 px-4 py-3 rounded-lg border border-green-200 bg-green-50 text-green-700 text-sm">
+    <i class="fas fa-circle-check mr-2"></i>
+    Usuário excluído com sucesso.
+  </div>
+<% } %>
+
 <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
   <div class="overflow-x-auto">
     <table class="w-full text-left border-collapse text-sm">
@@ -95,9 +116,22 @@
                   <a href="/users/edit/<%= user.id %>" class="hover:text-blue-600 transition" title="Editar Usuário">
                     <i class="fas fa-user-edit"></i>
                   </a>
-                  <a href="/users/delete/<%= user.id %>" onclick="return confirm('Excluir este usuário?')" class="hover:text-rose-600 transition" title="Excluir Usuário">
-                    <i class="fas fa-trash"></i>
-                  </a>
+                  <form
+                    action="/users/delete/<%= user.id %>"
+                    method="POST"
+                    class="inline"
+                    onsubmit="return confirm('Excluir este usuário?')"
+                  >
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+                    <button
+                      type="submit"
+                      class="hover:text-rose-600 transition"
+                      title="Excluir Usuário"
+                    >
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
                 </div>
               </td>
 
