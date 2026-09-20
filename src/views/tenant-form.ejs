@@ -20,6 +20,8 @@
         method="POST"
         class="bg-white p-8 rounded-xl shadow-lg border border-slate-200"
     >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
         <div class="space-y-6">
 
             <!-- EMPRESA -->

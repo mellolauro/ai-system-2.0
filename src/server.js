@@ -13,6 +13,11 @@ const bootstrap = require("./bootstrap");
 const requireAuth = require("./middleware/requireAuth");
 
 const {
+    csrfSynchronisedProtection,
+    exposeCsrfToken
+} = require("./middleware/csrf");
+
+const {
     initTelegram,
     stopTelegram
 } = require("./channels/telegram");
@@ -179,30 +184,39 @@ app.use(
 app.use(
     "/dashboard",
     requireAuth,
+    exposeCsrfToken,
+    csrfSynchronisedProtection,
     require("./routes/dashboard")
 );
 
 app.use(
     "/products",
     requireAuth,
+    exposeCsrfToken,
     require("./routes/products")
 );
 
 app.use(
     "/tenants",
     requireAuth,
+    exposeCsrfToken,
+    csrfSynchronisedProtection,
     require("./routes/tenants")
 );
 
 app.use(
     "/users",
     requireAuth,
+    exposeCsrfToken,
+    csrfSynchronisedProtection,
     require("./routes/users")
 );
 
 app.use(
     "/orders",
     requireAuth,
+    exposeCsrfToken,
+    csrfSynchronisedProtection,
     require("./routes/orders")
 );
 
@@ -297,6 +311,39 @@ app.get(
             timestamp:
                 new Date()
         });
+    }
+);
+
+/*
+ * ============================================================
+ * CSRF ERROR HANDLER
+ * ============================================================
+ */
+
+app.use(
+    (
+        err,
+        req,
+        res,
+        next
+    ) => {
+        if (err.code !== "EBADCSRFTOKEN") {
+            return next(err);
+        }
+
+        console.warn(
+            "Requisição bloqueada por CSRF:",
+            req.method,
+            req.originalUrl
+        );
+
+        return res
+            .status(403)
+            .json({
+                success: false,
+                message:
+                    "Requisição inválida ou expirada. Atualize a página e tente novamente."
+            });
     }
 );
 
