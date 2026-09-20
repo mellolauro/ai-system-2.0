@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
+const helmet = require("helmet");
 const session = require("express-session");
 const { Pool } = require("pg");
 const pgSession = require("connect-pg-simple")(session);
@@ -55,6 +56,22 @@ app.use(express.json());
 app.use(
     express.urlencoded({
         extended: true
+    })
+);
+
+/*
+ * ============================================================
+ * SECURITY HEADERS
+ * ============================================================
+ */
+
+app.use(
+    helmet({
+        contentSecurityPolicy: false,
+
+        referrerPolicy: {
+            policy: "strict-origin-when-cross-origin"
+        }
     })
 );
 
