@@ -181,7 +181,7 @@ router.post("/update/:id", async (req, res) => {
 // ======================
 // DELETAR TENANT
 // ======================
-router.get("/delete/:id", async (req, res) => {
+router.post("/delete/:id", async (req, res) => {
 
   await prisma.tenant.delete({
 

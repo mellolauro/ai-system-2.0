@@ -33,9 +33,22 @@
                         <a href="/tenants/edit/<%= t.id %>" class="text-blue-500 hover:text-blue-700 transition-colors">
                             <i class="fas fa-edit"></i>
                         </a>
-                        <button onclick="confirmDelete('<%= t.id %>')" class="text-red-400 hover:text-red-600 transition-colors">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <form
+                            action="/tenants/delete/<%= t.id %>"
+                            method="POST"
+                            class="inline"
+                            onsubmit="return confirm('Tem certeza que deseja excluir este Tenant? Todos os produtos vinculados podem ser afetados.')"
+                        >
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+                            <button
+                                type="submit"
+                                class="text-red-400 hover:text-red-600 transition-colors"
+                                title="Excluir Tenant"
+                            >
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
                     </td>
                 </tr>
             <% }) %>
@@ -43,10 +56,4 @@
     </table>
 </div>
 
-<script>
-    function confirmDelete(id) {
-        if(confirm('Tem certeza que deseja excluir este Tenant? Todos os produtos vinculados podem ser afetados.')) {
-            window.location.href = `/tenants/delete/${id}`;
-        }
-    }
-</script>
+
