@@ -238,6 +238,11 @@ app.use(
 );
 
 app.use(
+    "/api/admin/chat",
+    require("./routes/adminChat")
+);
+
+app.use(
     "/api/chat",
     require("./routes/chat")
 );

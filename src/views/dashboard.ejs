@@ -164,4 +164,969 @@
     </div>
 
   </div>
+
+  <!-- Assistente Administrativo -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-4">
+      <div>
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="fas fa-wand-magic-sparkles text-indigo-600"></i>
+          Assistente Administrativo
+        </h3>
+
+        <p class="text-xs text-slate-500 mt-1">
+          Consulte faturamento, pedidos, custos e indicadores da operação.
+        </p>
+      </div>
+
+      <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">
+        ADMIN
+      </span>
+    </div>
+
+    <div
+      id="admin-assistant-messages"
+      class="p-6 min-h-[180px] max-h-[420px] overflow-y-auto space-y-4 bg-slate-50/50"
+    >
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 shrink-0 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+          <i class="fas fa-robot text-sm"></i>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-xl rounded-tl-sm px-4 py-3 text-sm text-slate-700 shadow-sm max-w-3xl">
+          Faça uma pergunta sobre a operação. Para consultas financeiras, informe o período desejado.
+        </div>
+      </div>
+    </div>
+
+    <form
+      id="admin-assistant-form"
+      class="p-4 border-t border-slate-100 bg-white"
+    >
+      <div class="flex items-end gap-3">
+
+        <textarea
+          id="admin-assistant-input"
+          rows="2"
+          maxlength="2000"
+          placeholder="Ex.: Qual foi meu faturamento e margem bruta hoje?"
+          class="flex-1 resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          required
+        ></textarea>
+
+        <button
+          id="admin-assistant-microphone"
+          type="button"
+          title="Usar reconhecimento de voz"
+          aria-label="Usar reconhecimento de voz"
+          class="h-[46px] w-[46px] shrink-0 rounded-xl border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center"
+        >
+          <i class="fas fa-microphone"></i>
+        </button>
+
+        <button
+          id="admin-assistant-submit"
+          type="submit"
+          class="h-[46px] px-5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        >
+          <i class="fas fa-paper-plane mr-2"></i>
+          Enviar
+        </button>
+
+      </div>
+
+      <p
+        id="admin-assistant-status"
+        class="hidden mt-2 text-xs text-slate-500"
+      ></p>
+    </form>
+
+  </div>
+
+<script>
+(() => {
+  const form =
+    document.getElementById(
+      "admin-assistant-form"
+    );
+
+  const input =
+    document.getElementById(
+      "admin-assistant-input"
+    );
+
+  const messages =
+    document.getElementById(
+      "admin-assistant-messages"
+    );
+
+  const submit =
+    document.getElementById(
+      "admin-assistant-submit"
+    );
+
+  const microphone =
+    document.getElementById(
+      "admin-assistant-microphone"
+    );
+
+  const status =
+    document.getElementById(
+      "admin-assistant-status"
+    );
+
+  if (
+    !form ||
+    !input ||
+    !messages ||
+    !submit ||
+    !microphone ||
+    !status
+  ) {
+    return;
+  }
+
+  const csrfInput =
+    document.querySelector(
+      'input[name="_csrf"]'
+    );
+
+
+    /*
+     * Síntese de voz das respostas do assistente.
+     * A reprodução é iniciada somente pelo usuário.
+     */
+    const speechSynthesisSupported =
+      "speechSynthesis" in window &&
+      "SpeechSynthesisUtterance" in window;
+
+    let speakingButton = null;
+    let currentUtterance = null;
+
+    function resetSpeakingButton() {
+      if (speakingButton) {
+        const icon =
+          speakingButton.querySelector("i");
+
+        if (icon) {
+          icon.className =
+            "fas fa-volume-up";
+        }
+
+        speakingButton.classList.remove(
+          "text-indigo-600",
+          "bg-indigo-50",
+          "ring-2",
+          "ring-indigo-200",
+          "animate-pulse"
+        );
+
+        speakingButton.title =
+          "Ouvir resposta";
+
+        speakingButton.setAttribute(
+          "aria-label",
+          "Ouvir resposta"
+        );
+      }
+
+      speakingButton = null;
+      currentUtterance = null;
+    }
+
+    function stopSpeaking() {
+      if (!speechSynthesisSupported) {
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      resetSpeakingButton();
+    }
+
+    function speakAnswer(
+      content,
+      button,
+      onFinished = null
+    ) {
+      if (!speechSynthesisSupported) {
+        return;
+      }
+
+      if (
+        speakingButton === button &&
+        (
+          window.speechSynthesis.speaking ||
+          window.speechSynthesis.pending
+        )
+      ) {
+        stopSpeaking();
+        return;
+      }
+
+      stopSpeaking();
+
+      const utterance =
+        new SpeechSynthesisUtterance(
+          content
+        );
+
+      utterance.lang = "pt-BR";
+      utterance.rate = 1;
+      utterance.pitch = 1;
+
+      currentUtterance = utterance;
+      speakingButton = button;
+
+      const icon =
+        button.querySelector("i");
+
+      if (icon) {
+        icon.className =
+          "fas fa-stop";
+      }
+
+      button.classList.add(
+        "text-indigo-600",
+        "bg-indigo-50",
+        "ring-2",
+        "ring-indigo-200",
+        "animate-pulse"
+      );
+
+      button.title =
+        "Parar leitura";
+
+      button.setAttribute(
+        "aria-label",
+        "Parar leitura"
+      );
+
+        utterance.onend =
+          () => {
+            if (
+              currentUtterance !==
+              utterance
+            ) {
+              return;
+            }
+
+            resetSpeakingButton();
+
+            if (
+              typeof onFinished ===
+              "function"
+            ) {
+              onFinished();
+            }
+          };
+
+      utterance.onerror =
+        () => {
+          if (
+            currentUtterance ===
+            utterance
+          ) {
+            resetSpeakingButton();
+          }
+        };
+
+      window.speechSynthesis.speak(
+        utterance
+      );
+    }
+
+  function addMessage(
+    content,
+    type
+  ) {
+    const wrapper =
+      document.createElement("div");
+
+    wrapper.className =
+      type === "user"
+        ? "flex items-start justify-end gap-3"
+        : "flex items-start gap-3";
+
+    const bubble =
+      document.createElement("div");
+
+    bubble.className =
+      type === "user"
+        ? "bg-indigo-600 text-white rounded-xl rounded-tr-sm px-4 py-3 text-sm shadow-sm max-w-3xl whitespace-pre-wrap"
+        : "bg-white border border-slate-200 rounded-xl rounded-tl-sm px-4 py-3 text-sm text-slate-700 shadow-sm max-w-3xl whitespace-pre-wrap";
+
+    /*
+     * textContent evita interpretar HTML vindo
+     * da resposta do agente.
+     */
+    bubble.textContent =
+      content;
+
+    wrapper.appendChild(bubble);
+
+      let speechButton = null;
+
+
+      /*
+       * Botão de áudio disponível somente
+       * nas respostas do assistente.
+       */
+      if (
+        type === "assistant" &&
+        speechSynthesisSupported
+      ) {
+        speechButton =
+          document.createElement(
+            "button"
+          );
+
+        speechButton.type =
+          "button";
+
+        speechButton.className =
+          "h-9 w-9 shrink-0 mt-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition flex items-center justify-center";
+
+        speechButton.title =
+          "Ouvir resposta";
+
+        speechButton.setAttribute(
+          "aria-label",
+          "Ouvir resposta"
+        );
+
+        const speechIcon =
+          document.createElement("i");
+
+        speechIcon.className =
+          "fas fa-volume-up";
+
+        speechButton.appendChild(
+          speechIcon
+        );
+
+        speechButton.addEventListener(
+          "click",
+          () => {
+            speakAnswer(
+              content,
+              speechButton
+            );
+          }
+        );
+
+        wrapper.appendChild(
+          speechButton
+        );
+      }
+    messages.appendChild(wrapper);
+
+    messages.scrollTop =
+      messages.scrollHeight;
+
+      return speechButton;
+  }
+
+  /*
+   * Reconhecimento de voz.
+   * Apenas transcreve; não envia automaticamente.
+   */
+  const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  let recognition = null;
+  let isListening = false;
+  let voiceBaseText = "";
+
+
+    /*
+     * Modo conversa por voz.
+     *
+     * O envio automático será disparado somente
+     * depois de um período de silêncio.
+     */
+    let conversationMode = false;
+      let waitingForAssistant = false;
+      let assistantIsSpeaking = false;
+    let silenceTimer = null;
+
+    const VOICE_SILENCE_DELAY =
+      2000;
+
+    function clearSilenceTimer() {
+      if (!silenceTimer) {
+        return;
+      }
+
+      clearTimeout(
+        silenceTimer
+      );
+
+      silenceTimer = null;
+    }
+
+    function setConversationMode(
+      enabled
+    ) {
+      conversationMode = enabled;
+
+      if (!enabled) {
+        clearSilenceTimer();
+      }
+    }
+
+  function setListeningState(listening) {
+    isListening = listening;
+
+    microphone.classList.toggle(
+      "bg-red-50",
+      listening
+    );
+
+    microphone.classList.toggle(
+      "border-red-400",
+      listening
+    );
+
+    microphone.classList.toggle(
+      "text-red-600",
+      listening
+    );
+
+    microphone.classList.toggle(
+      "ring-2",
+      listening
+    );
+
+    microphone.classList.toggle(
+      "ring-red-200",
+      listening
+    );
+
+    microphone.classList.toggle(
+      "animate-pulse",
+      listening
+    );
+
+    const icon =
+      microphone.querySelector("i");
+
+    if (icon) {
+      icon.className =
+        listening
+          ? "fas fa-stop"
+          : "fas fa-microphone";
+    }
+
+    microphone.title =
+      listening
+        ? "Parar reconhecimento de voz"
+        : "Usar reconhecimento de voz";
+
+    microphone.setAttribute(
+      "aria-label",
+      microphone.title
+    );
+  }
+
+  if (!SpeechRecognition) {
+    microphone.disabled = true;
+
+    microphone.title =
+      "Reconhecimento de voz não suportado neste navegador";
+
+    microphone.setAttribute(
+      "aria-label",
+      microphone.title
+    );
+
+  } else {
+    recognition =
+      new SpeechRecognition();
+
+    recognition.lang = "pt-BR";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onstart =
+      () => {
+        setListeningState(true);
+
+        status.textContent =
+          "Ouvindo... clique novamente no microfone para parar.";
+
+        status.classList.remove(
+          "hidden"
+        );
+      };
+
+    recognition.onresult =
+      event => {
+        let finalText = "";
+        let interimText = "";
+
+        for (
+          let i = event.resultIndex;
+          i < event.results.length;
+          i++
+        ) {
+          const transcript =
+            event.results[i][0].transcript;
+
+          if (event.results[i].isFinal) {
+            finalText += transcript;
+          } else {
+            interimText += transcript;
+          }
+        }
+
+        if (finalText.trim()) {
+          voiceBaseText =
+            [
+              voiceBaseText,
+              finalText.trim()
+            ]
+              .filter(Boolean)
+              .join(" ");
+        }
+
+
+          /*
+           * Qualquer nova atividade de voz cancela
+           * a contagem de silêncio anterior.
+           */
+          clearSilenceTimer();
+
+          /*
+           * Somente uma transcrição final inicia
+           * a contagem para possível envio.
+           */
+          if (
+            conversationMode &&
+            finalText.trim()
+          ) {
+            status.textContent =
+              "Pergunta detectada. Aguardando 2 segundos de silêncio...";
+
+            status.classList.remove(
+              "hidden"
+            );
+
+            silenceTimer =
+              setTimeout(
+                () => {
+                  silenceTimer = null;
+
+                  if (
+                    !conversationMode ||
+                    !input.value.trim() ||
+                    input.disabled
+                  ) {
+                    return;
+                  }
+
+                  status.textContent =
+                    "Enviando pergunta...";
+
+                  status.classList.remove(
+                    "hidden"
+                  );
+
+                  /*
+                   * Interrompe a escuta antes de enviar.
+                   * Isso será importante quando a resposta
+                   * passar a ser lida em voz alta.
+                   */
+                  if (isListening) {
+                    recognition.stop();
+                  }
+
+                    waitingForAssistant = true;
+
+                  form.requestSubmit();
+                },
+                VOICE_SILENCE_DELAY
+              );
+          }
+
+        input.value =
+          [
+            voiceBaseText,
+            interimText.trim()
+          ]
+            .filter(Boolean)
+            .join(" ");
+      };
+
+      recognition.onerror =
+        event => {
+          setListeningState(false);
+
+          if (
+            event.error === "not-allowed" ||
+            event.error === "service-not-allowed"
+          ) {
+            setConversationMode(false);
+
+            status.textContent =
+              "Permissão do microfone negada pelo navegador.";
+
+          } else if (
+            event.error === "no-speech"
+          ) {
+            /*
+             * No modo conversa, ausência de fala
+             * não encerra a sessão. O onend fará
+             * uma nova tentativa de escuta.
+             */
+            if (conversationMode) {
+              status.textContent =
+                "Modo conversa ativo. Aguardando sua fala...";
+            } else {
+              status.textContent =
+                "Nenhuma fala foi detectada.";
+            }
+
+          } else {
+            /*
+             * Erros inesperados encerram o modo
+             * para evitar ciclos de reinício.
+             */
+            setConversationMode(false);
+
+            status.textContent =
+              "Não foi possível usar o reconhecimento de voz.";
+          }
+
+          status.classList.remove(
+            "hidden"
+          );
+        };
+
+      recognition.onend =
+        () => {
+          setListeningState(false);
+
+          /*
+           * Enquanto aguardamos a IA ou enquanto
+           * ela está falando, o microfone deve
+           * permanecer desligado.
+           */
+          if (
+            !conversationMode ||
+            waitingForAssistant ||
+            assistantIsSpeaking
+          ) {
+            return;
+          }
+
+          status.textContent =
+            "Modo conversa ativo. Aguardando sua fala...";
+
+          status.classList.remove(
+            "hidden"
+          );
+
+          /*
+           * O Web Speech API pode encerrar uma
+           * sessão mesmo sem o usuário desligar
+           * o modo conversa. Reiniciamos após
+           * um pequeno intervalo.
+           */
+          setTimeout(
+            () => {
+              if (
+                !conversationMode ||
+                waitingForAssistant ||
+                assistantIsSpeaking ||
+                isListening
+              ) {
+                return;
+              }
+
+              try {
+                recognition.start();
+              } catch (err) {
+                setConversationMode(false);
+
+                status.textContent =
+                  "Não foi possível continuar o modo conversa por voz.";
+
+                status.classList.remove(
+                  "hidden"
+                );
+              }
+            },
+            250
+          );
+        };
+
+      microphone.addEventListener(
+        "click",
+        () => {
+          /*
+           * Se o modo conversa já estiver ativo,
+           * o clique encerra a conversa.
+           */
+          if (conversationMode) {
+            setConversationMode(false);
+
+            clearSilenceTimer();
+
+            if (isListening) {
+              recognition.stop();
+            }
+
+            status.textContent =
+              "Modo conversa por voz encerrado.";
+
+            status.classList.remove(
+              "hidden"
+            );
+
+            return;
+          }
+
+          /*
+           * Inicia o modo conversa.
+           */
+          setConversationMode(true);
+
+          voiceBaseText =
+            input.value.trim();
+
+          status.textContent =
+            "Modo conversa ativo. Pode falar.";
+
+          status.classList.remove(
+            "hidden"
+          );
+
+          try {
+            recognition.start();
+          } catch (err) {
+            setConversationMode(false);
+
+            status.textContent =
+              "Não foi possível iniciar o modo conversa por voz.";
+
+            status.classList.remove(
+              "hidden"
+            );
+        }
+      }
+    );
+  }
+
+  /*
+   * Enter envia a mensagem.
+   * Shift+Enter insere uma nova linha.
+   */
+  input.addEventListener(
+    "keydown",
+    event => {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !input.disabled
+      ) {
+        event.preventDefault();
+
+        if (input.value.trim()) {
+          form.requestSubmit();
+        }
+      }
+    }
+  );
+
+  form.addEventListener(
+    "submit",
+    async event => {
+      event.preventDefault();
+
+      const message =
+        input.value.trim();
+
+      if (!message) {
+        return;
+      }
+
+      if (
+        !csrfInput ||
+        !csrfInput.value
+      ) {
+        status.textContent =
+          "Token de segurança indisponível. Atualize a página.";
+
+        status.classList.remove(
+          "hidden"
+        );
+
+        return;
+      }
+
+      addMessage(
+        message,
+        "user"
+      );
+
+      input.value = "";
+      input.disabled = true;
+      submit.disabled = true;
+
+      status.textContent =
+        "Consultando o assistente...";
+
+      status.classList.remove(
+        "hidden"
+      );
+
+      try {
+        const response =
+          await fetch(
+            "/api/admin/chat",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                "x-csrf-token":
+                  csrfInput.value
+              },
+
+              body:
+                JSON.stringify({
+                  message
+                })
+            }
+          );
+
+        const payload =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !payload.success
+        ) {
+          throw new Error(
+            payload.message ||
+            payload.error ||
+            "Não foi possível processar a solicitação."
+          );
+        }
+
+          waitingForAssistant = false;
+
+        const answer =
+          payload.data &&
+          typeof payload.data.response === "string"
+            ? payload.data.response
+            : "O assistente não retornou uma resposta textual.";
+
+          const answerSpeechButton =
+            addMessage(
+              answer,
+              "assistant"
+            );
+
+          /*
+           * No modo conversa, lê a resposta
+           * automaticamente e só depois
+           * volta a ouvir o usuário.
+           */
+          if (
+            conversationMode &&
+            answerSpeechButton &&
+            speechSynthesisSupported
+          ) {
+            status.textContent =
+              "Assistente respondendo por voz...";
+
+            status.classList.remove(
+              "hidden"
+            );
+
+            assistantIsSpeaking = true;
+
+            speakAnswer(
+              answer,
+              answerSpeechButton,
+              () => {
+                /*
+                 * O usuário pode ter encerrado
+                 * o modo conversa durante a leitura.
+                 */
+                assistantIsSpeaking = false;
+
+                if (!conversationMode) {
+                  return;
+                }
+
+                /*
+                 * A pergunta anterior não pode
+                 * entrar na próxima transcrição.
+                 */
+                input.value = "";
+                voiceBaseText = "";
+
+                status.textContent =
+                  "Modo conversa ativo. Pode falar.";
+
+                status.classList.remove(
+                  "hidden"
+                );
+
+                try {
+                  recognition.start();
+                } catch (err) {
+                  setConversationMode(false);
+
+                  status.textContent =
+                    "Não foi possível continuar o modo conversa por voz.";
+
+                  status.classList.remove(
+                    "hidden"
+                  );
+                }
+              }
+            );
+          } else {
+            status.classList.add(
+              "hidden"
+            );
+          }
+
+      } catch (err) {
+          waitingForAssistant = false;
+          assistantIsSpeaking = false;
+          setConversationMode(false);
+
+
+        addMessage(
+          "Não foi possível consultar o assistente neste momento.",
+          "assistant"
+        );
+
+        status.textContent =
+          err.message ||
+          "Erro ao consultar o assistente.";
+
+        status.classList.remove(
+          "hidden"
+        );
+
+      } finally {
+        input.disabled = false;
+        submit.disabled = false;
+        input.focus();
+      }
+    }
+  );
+})();
+</script>
+
 </div>

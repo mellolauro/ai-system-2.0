@@ -31,8 +31,12 @@ class MessageController {
                     externalUserId:
                         req.body.externalUserId,
 
+                    /*
+                     * /api/chat é sempre contexto de cliente.
+                     * Contexto administrativo nunca deve ser
+                     * aceito diretamente do corpo HTTP.
+                     */
                     agentContext:
-                        req.body.agentContext ||
                         "client",
 
                     message:
