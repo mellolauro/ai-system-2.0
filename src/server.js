@@ -389,7 +389,7 @@ app.use(
             .json({
                 success: false,
                 message:
-                    err.message
+                    "Erro interno do servidor."
             });
     }
 );
