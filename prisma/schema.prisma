@@ -88,16 +88,31 @@ model User {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  orders        Order[]
-  memories      UserMemory[]
-  carts         Cart[]
-  conversations Conversation[]
+  orders              Order[]
+  memories            UserMemory[]
+  carts               Cart[]
+  conversations       Conversation[]
+  passwordResetTokens PasswordResetToken[]
 
   createdAt DateTime @default(now())
 
   @@index([tenantId])
   @@index([phone])
   @@index([tenantId, role])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model UserMemory {
