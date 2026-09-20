@@ -8,6 +8,7 @@ const {
 } = require("../middleware/csrf");
 
 const prisma = require("../prisma");
+const requireAuth = require("../middleware/requireAuth");
 
 const router = express.Router();
 
@@ -145,6 +146,251 @@ router.post(
                             );
                         }
                     );
+                }
+            );
+        } catch (err) {
+            return next(err);
+        }
+    }
+);
+
+/*
+ * ============================================================
+ * CHANGE PASSWORD
+ * ============================================================
+ */
+
+const changePasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+
+    message:
+        "Muitas tentativas de alteração de senha. Aguarde 15 minutos e tente novamente."
+});
+
+function renderChangePassword(
+    req,
+    res,
+    {
+        status = 200,
+        error = null,
+        success = null
+    } = {}
+) {
+    return res.status(status).render(
+        "change-password",
+        {
+            layout: false,
+            error,
+            success
+        }
+    );
+}
+
+router.get(
+    "/change-password",
+    requireAuth,
+    exposeCsrfToken,
+    (req, res) => {
+        return renderChangePassword(
+            req,
+            res
+        );
+    }
+);
+
+router.post(
+    "/change-password",
+    requireAuth,
+    exposeCsrfToken,
+    changePasswordLimiter,
+    csrfSynchronisedProtection,
+    async (req, res, next) => {
+        const {
+            currentPassword,
+            newPassword,
+            confirmPassword
+        } = req.body;
+
+        try {
+            if (
+                typeof currentPassword !== "string" ||
+                typeof newPassword !== "string" ||
+                typeof confirmPassword !== "string"
+            ) {
+                return renderChangePassword(
+                    req,
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "Preencha todos os campos."
+                    }
+                );
+            }
+
+            if (
+                newPassword !==
+                confirmPassword
+            ) {
+                return renderChangePassword(
+                    req,
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "A confirmação da nova senha não confere."
+                    }
+                );
+            }
+
+            if (newPassword.length < 12) {
+                return renderChangePassword(
+                    req,
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "A nova senha deve ter pelo menos 12 caracteres."
+                    }
+                );
+            }
+
+            /*
+             * bcrypt considera no máximo 72 bytes da senha.
+             * Rejeitamos valores maiores para evitar truncamento
+             * silencioso.
+             */
+            if (
+                Buffer.byteLength(
+                    newPassword,
+                    "utf8"
+                ) > 72
+            ) {
+                return renderChangePassword(
+                    req,
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "A nova senha excede o limite permitido."
+                    }
+                );
+            }
+
+            const adminUser =
+                await prisma.user.findFirst({
+                    where: {
+                        id:
+                            req.session.userId,
+
+                        tenantId:
+                            req.session.tenantId,
+
+                        role:
+                            "ADMIN"
+                    },
+
+                    select: {
+                        id: true,
+                        passwordHash: true
+                    }
+                });
+
+            if (
+                !adminUser ||
+                !adminUser.passwordHash
+            ) {
+                throw new Error(
+                    "Credencial administrativa não encontrada."
+                );
+            }
+
+            const currentPasswordValid =
+                await bcrypt.compare(
+                    currentPassword,
+                    adminUser.passwordHash
+                );
+
+            if (!currentPasswordValid) {
+                return renderChangePassword(
+                    req,
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "A senha atual está incorreta."
+                    }
+                );
+            }
+
+            const samePassword =
+                await bcrypt.compare(
+                    newPassword,
+                    adminUser.passwordHash
+                );
+
+            if (samePassword) {
+                return renderChangePassword(
+                    req,
+                    res,
+                    {
+                        status: 400,
+                        error:
+                            "A nova senha deve ser diferente da senha atual."
+                    }
+                );
+            }
+
+            const newPasswordHash =
+                await bcrypt.hash(
+                    newPassword,
+                    12
+                );
+
+            await prisma.$transaction(
+                async tx => {
+                    await tx.user.update({
+                        where: {
+                            id:
+                                adminUser.id
+                        },
+
+                        data: {
+                            passwordHash:
+                                newPasswordHash,
+
+                            passwordChangedAt:
+                                new Date()
+                        }
+                    });
+
+                    /*
+                     * Invalida todas as outras sessões
+                     * autenticadas deste administrador.
+                     *
+                     * A sessão que realizou a troca é
+                     * preservada.
+                     */
+                    await tx.$executeRaw`
+                        DELETE FROM "session"
+                        WHERE sess ->> 'userId' =
+                              ${adminUser.id}
+                          AND sid <>
+                              ${req.sessionID}
+                    `;
+                }
+            );
+
+            return renderChangePassword(
+                req,
+                res,
+                {
+                    success:
+                        "Senha alterada com sucesso."
                 }
             );
         } catch (err) {
