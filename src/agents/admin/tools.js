@@ -1,6 +1,6 @@
 module.exports = [
-    "getOrder",
-    "getLatestOrder",
+    "adminGetOrder",
+    "adminListOrders",
     "updatePaymentStatus",
     "shipOrder",
     "deliverOrder",
