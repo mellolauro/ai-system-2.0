@@ -102,13 +102,23 @@ async function updateDriverLocation({
       };
     }
 
-    const driver = await prisma.driver.findUnique({
-      where: {
-        trackingTokenHash
-      }
-    });
+    const device =
+      await prisma.driverTrackingDevice.findUnique({
+        where: {
+          tokenHash: trackingTokenHash
+        },
+        include: {
+          driver: true
+        }
+      });
 
-    if (!driver || !driver.active) {
+    if (
+      !device ||
+      !device.active ||
+      device.revokedAt ||
+      !device.driver ||
+      !device.driver.active
+    ) {
       return {
         success: false,
         code: "INVALID_TRACKING_TOKEN",
@@ -140,7 +150,7 @@ async function updateDriverLocation({
         const updated =
           await tx.driver.update({
             where: {
-              id: driver.id
+              id: device.driver.id
             },
             data: {
               latitude: lat,
@@ -151,10 +161,19 @@ async function updateDriverLocation({
 
         await tx.driverLocation.create({
           data: {
-            driverId: driver.id,
+            driverId: device.driver.id,
             latitude: lat,
             longitude: lng,
             timestamp: now
+          }
+        });
+
+        await tx.driverTrackingDevice.update({
+          where: {
+            id: device.id
+          },
+          data: {
+            lastSeenAt: now
           }
         });
 
@@ -165,6 +184,7 @@ async function updateDriverLocation({
       success: true,
       message: "Localização atualizada com sucesso.",
       driverId: updatedDriver.id,
+      deviceId: device.id,
       timestamp: updatedDriver.lastLocationAt
     };
   } catch (error) {
@@ -180,10 +200,6 @@ async function updateDriverLocation({
   }
 }
 
-
-/**
- * Definições das tools no padrão Function Calling exigido pelo ToolManager / LLM
- */
 const deliveryToolsDefinitions = [
   {
     name: "trackDelivery",

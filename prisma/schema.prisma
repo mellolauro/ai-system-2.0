@@ -313,8 +313,9 @@ model Driver {
   tenantId String?
   tenant   Tenant? @relation(fields: [tenantId], references: [id])
 
-  deliveries Delivery[]
-  locations  DriverLocation[]
+  deliveries      Delivery[]
+  locations       DriverLocation[]
+  trackingDevices DriverTrackingDevice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -357,6 +358,23 @@ model Delivery {
 
   @@index([tenantId])
   @@index([driverId])
+}
+
+model DriverTrackingDevice {
+  id        String   @id @default(cuid())
+  driverId  String
+  tokenHash String   @unique
+  name      String?
+  active    Boolean  @default(true)
+  lastSeenAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId])
+  @@index([driverId, active])
 }
 
 model DriverLocation {

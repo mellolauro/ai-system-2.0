@@ -7,6 +7,12 @@ function normalizePhone(value) {
   return String(value || "").trim();
 }
 
+function normalizeDeviceName(value) {
+  const name = String(value || "").trim();
+
+  return name || "Dispositivo GPS";
+}
+
 function hashToken(token) {
   return crypto
     .createHash("sha256")
@@ -19,9 +25,14 @@ async function main() {
     process.argv[2]
   );
 
+  const deviceName =
+    normalizeDeviceName(
+      process.argv.slice(3).join(" ")
+    );
+
   if (!phone) {
     console.error(
-      "Uso: node scripts/provision-driver-tracking.js <telefone>"
+      "Uso: node scripts/provision-driver-tracking.js <telefone> [nome do dispositivo]"
     );
     process.exitCode = 1;
     return;
@@ -71,19 +82,25 @@ async function main() {
   const tokenHash =
     hashToken(token);
 
-  await prisma.driver.update({
-    where: {
-      id: driver.id
-    },
-    data: {
-      trackingTokenHash: tokenHash
-    }
-  });
+  const device =
+    await prisma.driverTrackingDevice.create({
+      data: {
+        driverId: driver.id,
+        tokenHash,
+        name: deviceName
+      },
+      select: {
+        id: true,
+        name: true
+      }
+    });
 
   console.log("");
-  console.log("Credencial GPS provisionada.");
+  console.log("Dispositivo GPS provisionado.");
   console.log(`Entregador: ${driver.name}`);
   console.log(`Telefone: ${driver.phone}`);
+  console.log(`Dispositivo: ${device.name}`);
+  console.log(`Device ID: ${device.id}`);
   console.log("");
   console.log("TOKEN (exibido somente agora):");
   console.log(token);
@@ -92,14 +109,14 @@ async function main() {
     "Guarde esta credencial com segurança."
   );
   console.log(
-    "Executar novamente este script revoga o token anterior."
+    "Este token autentica somente este dispositivo."
   );
 }
 
 main()
   .catch(error => {
     console.error(
-      "Erro ao provisionar credencial GPS:",
+      "Erro ao provisionar dispositivo GPS:",
       error
     );
     process.exitCode = 1;
