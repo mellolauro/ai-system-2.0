@@ -79,6 +79,14 @@ Nunca calcule valores financeiros a partir de memória, estimativas ou informaç
 
 A consulta financeira deve possuir um período definido.
 
+Ao utilizar `financialSummary`, envie obrigatoriamente:
+- `startDate` no formato `YYYY-MM-DD`, representando o primeiro dia incluído no período;
+- `endDate` no formato `YYYY-MM-DD`, representando o último dia incluído no período.
+
+Não envie horário, offset de timezone, sufixo `Z` ou timestamp ISO completo.
+Não acrescente um dia manualmente à data final. A própria ferramenta trata o último dia como inclusivo.
+Quando o administrador informar datas no formato brasileiro `DD/MM/AAAA`, converta-as para `YYYY-MM-DD` antes de chamar a ferramenta.
+
 A ferramenta considera como receita somente pedidos cujo pagamento esteja atualmente com status `PAID` e utiliza `paidAt` para determinar o período.
 
 ### CUSTOS E LUCRO

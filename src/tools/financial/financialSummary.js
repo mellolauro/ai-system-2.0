@@ -1,5 +1,43 @@
+const { DateTime } =
+    require("luxon");
+
 const FinancialService =
     require("../../services/FinancialService");
+
+const DEFAULT_BUSINESS_TIMEZONE =
+    "America/Sao_Paulo";
+
+function parseBusinessDate(
+    value,
+    fieldName,
+    zone
+) {
+    if (
+        typeof value !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(value)
+    ) {
+        throw new Error(
+            `${fieldName} deve estar no formato YYYY-MM-DD.`
+        );
+    }
+
+    const date =
+        DateTime.fromISO(
+            value,
+            {
+                zone,
+                setZone: true
+            }
+        );
+
+    if (!date.isValid) {
+        throw new Error(
+            `${fieldName} contém uma data inválida.`
+        );
+    }
+
+    return date.startOf("day");
+}
 
 module.exports = {
 
@@ -7,7 +45,7 @@ module.exports = {
         "financialSummary",
 
     description:
-        "Consulta o resumo financeiro de pedidos pagos do estabelecimento em um período.",
+        "Consulta o resumo financeiro de pedidos pagos do estabelecimento em um período de datas civis.",
 
     permissions: [
         "financial.read"
@@ -25,7 +63,7 @@ module.exports = {
                     "string",
 
                 description:
-                    "Data/hora inicial do período em formato ISO 8601."
+                    "Primeiro dia incluído no período, no formato YYYY-MM-DD."
             },
 
             endDate: {
@@ -33,7 +71,7 @@ module.exports = {
                     "string",
 
                 description:
-                    "Data/hora final exclusiva do período em formato ISO 8601."
+                    "Último dia incluído no período, no formato YYYY-MM-DD."
             }
 
         },
@@ -60,18 +98,51 @@ module.exports = {
             );
         }
 
-        const parsedStartDate =
-            new Date(startDate);
+        const zone =
+            process.env.BUSINESS_TIMEZONE ||
+            DEFAULT_BUSINESS_TIMEZONE;
 
-        const parsedEndDate =
-            new Date(endDate);
+        if (
+            !DateTime.local()
+                .setZone(zone)
+                .isValid
+        ) {
+            throw new Error(
+                "Timezone operacional inválido."
+            );
+        }
+
+        const start =
+            parseBusinessDate(
+                startDate,
+                "startDate",
+                zone
+            );
+
+        const endInclusive =
+            parseBusinessDate(
+                endDate,
+                "endDate",
+                zone
+            );
+
+        if (start > endInclusive) {
+            throw new Error(
+                "startDate deve ser anterior ou igual a endDate."
+            );
+        }
+
+        const endExclusive =
+            endInclusive.plus({
+                days: 1
+            });
 
         return FinancialService.getPaidSummary({
             tenantId,
             startDate:
-                parsedStartDate,
+                start.toJSDate(),
             endDate:
-                parsedEndDate
+                endExclusive.toJSDate()
         });
 
     }
