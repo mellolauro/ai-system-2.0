@@ -1,6 +1,10 @@
 const express =
     require("express");
 
+const {
+    rateLimit
+} = require("express-rate-limit");
+
 const MessageController =
     require("../controllers/MessageController");
 
@@ -14,9 +18,37 @@ const {
 const router =
     express.Router();
 
+const MAX_MESSAGE_LENGTH =
+    2000;
+
+const adminChatLimiter =
+    rateLimit({
+        windowMs:
+            5 * 60 * 1000,
+
+        limit:
+            20,
+
+        standardHeaders:
+            "draft-8",
+
+        legacyHeaders:
+            false,
+
+        keyGenerator: (req) =>
+            req.session.userId,
+
+        message: {
+            success: false,
+            error:
+                "Muitas mensagens enviadas. Aguarde alguns minutos e tente novamente."
+        }
+    });
+
 router.post(
     "/",
     requireAuth,
+    adminChatLimiter,
     csrfSynchronisedProtection,
     async (req, res) => {
         try {
@@ -42,6 +74,20 @@ router.post(
                 });
             }
 
+            const message =
+                req.body.message.trim();
+
+            if (
+                Array.from(message).length >
+                MAX_MESSAGE_LENGTH
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        `Mensagem deve possuir no máximo ${MAX_MESSAGE_LENGTH} caracteres.`
+                });
+            }
+
             const result =
                 await MessageController.process({
                     tenantId:
@@ -59,8 +105,7 @@ router.post(
                     agentContext:
                         "admin",
 
-                    message:
-                        req.body.message.trim()
+                    message
                 });
 
             return res.json({
