@@ -21,6 +21,25 @@ const router =
 const MAX_MESSAGE_LENGTH =
     2000;
 
+function requireAdminSessionIdentity(
+    req,
+    res,
+    next
+) {
+    if (
+        !req.session?.userId ||
+        !req.session?.tenantId
+    ) {
+        return res.status(401).json({
+            success: false,
+            error:
+                "Sessão administrativa inválida."
+        });
+    }
+
+    return next();
+}
+
 const adminChatLimiter =
     rateLimit({
         windowMs:
@@ -48,21 +67,11 @@ const adminChatLimiter =
 router.post(
     "/",
     requireAuth,
+    requireAdminSessionIdentity,
     adminChatLimiter,
     csrfSynchronisedProtection,
     async (req, res) => {
         try {
-            if (
-                !req.session.userId ||
-                !req.session.tenantId
-            ) {
-                return res.status(401).json({
-                    success: false,
-                    error:
-                        "Sessão administrativa inválida."
-                });
-            }
-
             if (
                 typeof req.body.message !== "string" ||
                 !req.body.message.trim()
