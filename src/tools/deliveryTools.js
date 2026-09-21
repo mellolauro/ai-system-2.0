@@ -88,50 +88,78 @@ async function trackDelivery({ orderId, deliveryId, orderNumber, tenantId }) {
 /**
  * Registra/Atualiza a localização GPS do entregador
  */
-async function updateDriverLocation({ driverPhone, latitude, longitude, tenantId }) {
+async function updateDriverLocation({
+  trackingTokenHash,
+  latitude,
+  longitude
+}) {
   try {
-    const driver = await prisma.driver.findFirst({
-      where: {
-        phone: driverPhone,
-        ...(tenantId ? { tenantId } : {})
-      }
-    });
-
-    if (!driver) {
+    if (!trackingTokenHash) {
       return {
         success: false,
-        message: "Entregador não encontrado com o número informado."
+        code: "INVALID_TRACKING_TOKEN",
+        message: "Credencial de rastreamento inválida."
       };
     }
 
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
+    const driver = await prisma.driver.findUnique({
+      where: {
+        trackingTokenHash
+      }
+    });
 
-    if (isNaN(lat) || isNaN(lng)) {
+    if (!driver || !driver.active) {
+      return {
+        success: false,
+        code: "INVALID_TRACKING_TOKEN",
+        message: "Credencial de rastreamento inválida."
+      };
+    }
+
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
       return {
         success: false,
         message: "Coordenadas de latitude e longitude inválidas."
       };
     }
 
-    // Atualiza a posição atual no entregador
-    const updatedDriver = await prisma.driver.update({
-      where: { id: driver.id },
-      data: {
-        latitude: lat,
-        longitude: lng,
-        lastLocationAt: new Date()
-      }
-    });
+    const now = new Date();
 
-    // Registra no histórico de posições do entregador
-    await prisma.driverLocation.create({
-      data: {
-        driverId: driver.id,
-        latitude: lat,
-        longitude: lng
-      }
-    });
+    const updatedDriver =
+      await prisma.$transaction(async (tx) => {
+        const updated =
+          await tx.driver.update({
+            where: {
+              id: driver.id
+            },
+            data: {
+              latitude: lat,
+              longitude: lng,
+              lastLocationAt: now
+            }
+          });
+
+        await tx.driverLocation.create({
+          data: {
+            driverId: driver.id,
+            latitude: lat,
+            longitude: lng,
+            timestamp: now
+          }
+        });
+
+        return updated;
+      });
 
     return {
       success: true,
@@ -140,12 +168,18 @@ async function updateDriverLocation({ driverPhone, latitude, longitude, tenantId
       timestamp: updatedDriver.lastLocationAt
     };
   } catch (error) {
+    console.error(
+      "Erro em updateDriverLocation:",
+      error
+    );
+
     return {
       success: false,
-      error: `Erro ao atualizar localização: ${error.message}`
+      message: "Erro interno ao atualizar localização."
     };
   }
 }
+
 
 /**
  * Definições das tools no padrão Function Calling exigido pelo ToolManager / LLM
@@ -173,30 +207,6 @@ const deliveryToolsDefinitions = [
       },
       additionalProperties: false
     }
-  },
-  {
-    name: "updateDriverLocation",
-    description:
-      "Atualiza a posição GPS (latitude/longitude) do entregador e insere o ponto no histórico de rastreamento.",
-    parameters: {
-      type: "object",
-      properties: {
-        driverPhone: {
-          type: "string",
-          description: "Número de celular/WhatsApp cadastrado do entregador."
-        },
-        latitude: {
-          type: "number",
-          description: "Latitude geográfica atual."
-        },
-        longitude: {
-          type: "number",
-          description: "Longitude geográfica atual."
-        }
-      },
-      required: ["driverPhone", "latitude", "longitude"],
-      additionalProperties: false
-    }
   }
 ];
 
@@ -212,9 +222,6 @@ async function handleDeliveryTool({ name, args, context }) {
   switch (name) {
     case "trackDelivery":
       return await trackDelivery(enrichedArgs);
-
-    case "updateDriverLocation":
-      return await updateDriverLocation(enrichedArgs);
 
     default:
       return {
