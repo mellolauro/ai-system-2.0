@@ -247,6 +247,12 @@ app.use(
     require("./routes/chat")
 );
 
+// Interface web do entregador
+app.use(
+    "/driver/tracking",
+    require("./routes/driverTrackingWeb")
+);
+
 // Rotas de Entregadores e Rastreio GPS
 app.use(
     "/api/drivers",

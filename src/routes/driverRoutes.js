@@ -33,6 +33,12 @@ const locationLimiter = rateLimit({
   }
 });
 
+// GET /api/drivers/tracking/session
+router.get(
+  "/tracking/session",
+  driverTrackingController.getSession
+);
+
 // POST /api/drivers/tracking/activate
 router.post(
   "/tracking/activate",

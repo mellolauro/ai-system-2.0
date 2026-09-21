@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Rastreamento do Entregador</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow:
+        0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    .status {
+      padding: 14px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .status strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      border: 0;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .secondary-button {
+      margin-top: 10px;
+      background: #475569;
+    }
+
+    .error {
+      margin-top: 12px;
+      color: #b91c1c;
+      line-height: 1.4;
+    }
+
+    .driver-info {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+    }
+
+    .driver-info p {
+      margin: 4px 0;
+    }
+
+    .tracking-panel {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .tracking-panel h2 {
+      margin: 0 0 12px;
+      font-size: 19px;
+    }
+
+    .tracking-details {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    .tracking-details p {
+      margin: 6px 0;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <section class="card">
+      <h1>Rastreamento de entrega</h1>
+
+      <p class="subtitle">
+        Ative este dispositivo e inicie
+        o envio seguro da localização.
+      </p>
+
+      <div
+        id="status"
+        class="status"
+      >
+        <strong>Verificando dispositivo...</strong>
+        Aguarde.
+      </div>
+
+      <div
+        id="activation"
+        class="hidden"
+      >
+        <form
+          method="POST"
+          action="/driver/tracking/activate"
+        >
+          <input
+            type="hidden"
+            name="_csrf"
+            value="<%= csrfToken %>"
+          >
+
+          <label for="token">
+            Código de ativação
+          </label>
+
+          <input
+            id="token"
+            name="token"
+            type="password"
+            autocomplete="off"
+            required
+          >
+
+          <button type="submit">
+            Ativar dispositivo
+          </button>
+        </form>
+
+        <% if (activationError) { %>
+          <div class="error">
+            <%= activationError %>
+          </div>
+        <% } %>
+      </div>
+
+      <div
+        id="driver-info"
+        class="driver-info hidden"
+      >
+        <p>
+          <strong>Entregador:</strong>
+          <span id="driver-name"></span>
+        </p>
+
+        <p>
+          <strong>Dispositivo:</strong>
+          <span id="device-name"></span>
+        </p>
+
+        <p>
+          <strong>Sessão:</strong>
+          ativa
+        </p>
+      </div>
+
+      <div
+        id="tracking-panel"
+        class="tracking-panel hidden"
+      >
+        <h2>Localização</h2>
+
+        <button
+          id="start-tracking"
+          type="button"
+        >
+          Iniciar rastreamento
+        </button>
+
+        <button
+          id="stop-tracking"
+          type="button"
+          class="secondary-button"
+          disabled
+        >
+          Parar rastreamento
+        </button>
+
+        <div
+          id="tracking-details"
+          class="tracking-details"
+        >
+          <p>
+            <strong>GPS:</strong>
+            <span id="gps-status">
+              parado
+            </span>
+          </p>
+
+          <p>
+            <strong>Precisão:</strong>
+            <span id="gps-accuracy">
+              —
+            </span>
+          </p>
+
+          <p>
+            <strong>Último envio:</strong>
+            <span id="last-sent">
+              —
+            </span>
+          </p>
+
+          <p>
+            <strong>Servidor:</strong>
+            <span id="server-status">
+              aguardando
+            </span>
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const SEND_INTERVAL_MS = 5000;
+
+    const statusBox =
+      document.getElementById("status");
+
+    const activationBox =
+      document.getElementById("activation");
+
+    const driverInfo =
+      document.getElementById("driver-info");
+
+    const driverName =
+      document.getElementById("driver-name");
+
+    const deviceName =
+      document.getElementById("device-name");
+
+    const trackingPanel =
+      document.getElementById("tracking-panel");
+
+    const startButton =
+      document.getElementById("start-tracking");
+
+    const stopButton =
+      document.getElementById("stop-tracking");
+
+    const gpsStatus =
+      document.getElementById("gps-status");
+
+    const gpsAccuracy =
+      document.getElementById("gps-accuracy");
+
+    const lastSent =
+      document.getElementById("last-sent");
+
+    const serverStatus =
+      document.getElementById("server-status");
+
+    let watchId = null;
+    let lastSendAt = 0;
+    let lastAttemptAt = 0;
+    let sending = false;
+    let trackingActive = false;
+
+    function showActivation() {
+      stopTracking();
+
+      statusBox.innerHTML =
+        "<strong>Dispositivo não ativado.</strong>" +
+        " Informe o código de ativação.";
+
+      activationBox.classList.remove("hidden");
+      driverInfo.classList.add("hidden");
+      trackingPanel.classList.add("hidden");
+    }
+
+    function showSession(data) {
+      statusBox.innerHTML =
+        "<strong>Dispositivo ativado.</strong>" +
+        " Sessão de rastreamento válida.";
+
+      driverName.textContent =
+        data.driver?.name || "Não informado";
+
+      deviceName.textContent =
+        data.device?.name || "Não informado";
+
+      activationBox.classList.add("hidden");
+      driverInfo.classList.remove("hidden");
+      trackingPanel.classList.remove("hidden");
+    }
+
+    function formatTime(value) {
+      return new Intl.DateTimeFormat(
+        "pt-BR",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }
+      ).format(value);
+    }
+
+    function stopTracking() {
+      if (
+        watchId !== null &&
+        navigator.geolocation
+      ) {
+        navigator.geolocation.clearWatch(
+          watchId
+        );
+      }
+
+      watchId = null;
+      sending = false;
+      trackingActive = false;
+
+      if (startButton) {
+        startButton.disabled = false;
+      }
+
+      if (stopButton) {
+        stopButton.disabled = true;
+      }
+
+      if (gpsStatus) {
+        gpsStatus.textContent = "parado";
+      }
+    }
+
+    async function sendLocation(position) {
+      const now = Date.now();
+
+      if (
+        sending ||
+        now - lastAttemptAt <
+          SEND_INTERVAL_MS
+      ) {
+        return;
+      }
+
+      const latitude =
+        position.coords.latitude;
+
+      const longitude =
+        position.coords.longitude;
+
+      if (
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+      ) {
+        serverStatus.textContent =
+          "coordenadas inválidas";
+        return;
+      }
+
+      sending = true;
+      lastAttemptAt = now;
+
+      serverStatus.textContent =
+        "enviando...";
+
+      try {
+        const response =
+          await fetch(
+            "/api/drivers/location",
+            {
+              method: "POST",
+              credentials: "same-origin",
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "X-Driver-Tracking": "1"
+              },
+              body: JSON.stringify({
+                latitude,
+                longitude
+              })
+            }
+          );
+
+        if (response.status === 401) {
+          serverStatus.textContent =
+            "sessão expirada";
+
+          statusBox.innerHTML =
+            "<strong>Sessão expirada.</strong>" +
+            " Ative novamente este dispositivo.";
+
+          stopTracking();
+          activationBox.classList.remove(
+            "hidden"
+          );
+          trackingPanel.classList.add(
+            "hidden"
+          );
+          return;
+        }
+
+        if (response.status === 403) {
+          serverStatus.textContent =
+            "requisição rejeitada";
+          stopTracking();
+          return;
+        }
+
+        if (response.status === 429) {
+          serverStatus.textContent =
+            "limite temporário atingido";
+          return;
+        }
+
+        if (!response.ok) {
+          serverStatus.textContent =
+            "erro no servidor";
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        if (!data.success) {
+          serverStatus.textContent =
+            "localização não aceita";
+          return;
+        }
+
+        lastSendAt = Date.now();
+
+        if (!trackingActive) {
+          return;
+        }
+
+        serverStatus.textContent =
+          "localização recebida";
+
+        lastSent.textContent =
+          formatTime(new Date());
+
+        statusBox.innerHTML =
+          "<strong>Rastreamento ativo.</strong>" +
+          " A localização está sendo enviada.";
+      } catch (error) {
+        serverStatus.textContent =
+          "sem comunicação com o servidor";
+      } finally {
+        sending = false;
+      }
+    }
+
+    function handlePosition(position) {
+      gpsStatus.textContent =
+        "posição obtida";
+
+      if (
+        Number.isFinite(
+          position.coords.accuracy
+        )
+      ) {
+        gpsAccuracy.textContent =
+          Math.round(
+            position.coords.accuracy
+          ) + " m";
+      } else {
+        gpsAccuracy.textContent = "—";
+      }
+
+      sendLocation(position);
+    }
+
+    function handlePositionError(error) {
+      if (error.code === 1) {
+        stopTracking();
+
+        gpsStatus.textContent =
+          "permissão negada";
+
+        statusBox.innerHTML =
+          "<strong>GPS não autorizado.</strong>" +
+          " Permita o acesso à localização no navegador.";
+
+        return;
+      }
+
+      if (error.code === 2) {
+        gpsStatus.textContent =
+          "posição indisponível";
+        return;
+      }
+
+      if (error.code === 3) {
+        gpsStatus.textContent =
+          "tempo limite excedido";
+        return;
+      }
+
+      gpsStatus.textContent =
+        "erro de localização";
+    }
+
+    function startTracking() {
+      if (!navigator.geolocation) {
+        gpsStatus.textContent =
+          "não suportado";
+
+        statusBox.innerHTML =
+          "<strong>GPS indisponível.</strong>" +
+          " Este navegador não oferece geolocalização.";
+
+        return;
+      }
+
+      if (watchId !== null) {
+        return;
+      }
+
+      gpsStatus.textContent =
+        "aguardando posição...";
+
+      serverStatus.textContent =
+        "aguardando GPS";
+
+      startButton.disabled = true;
+      stopButton.disabled = false;
+
+      trackingActive = true;
+
+      watchId =
+        navigator.geolocation.watchPosition(
+          handlePosition,
+          handlePositionError,
+          {
+            enableHighAccuracy: true,
+            maximumAge: 5000,
+            timeout: 15000
+          }
+        );
+    }
+
+    async function checkSession() {
+      try {
+        const response =
+          await fetch(
+            "/api/drivers/tracking/session",
+            {
+              credentials: "same-origin"
+            }
+          );
+
+        if (!response.ok) {
+          showActivation();
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        if (
+          data.success &&
+          data.authenticated
+        ) {
+          showSession(data);
+          return;
+        }
+
+        showActivation();
+      } catch (error) {
+        statusBox.innerHTML =
+          "<strong>Falha de comunicação.</strong>" +
+          " Não foi possível verificar o dispositivo.";
+      }
+    }
+
+    startButton.addEventListener(
+      "click",
+      startTracking
+    );
+
+    stopButton.addEventListener(
+      "click",
+      stopTracking
+    );
+
+    checkSession();
+  </script>
+</body>
+</html>
