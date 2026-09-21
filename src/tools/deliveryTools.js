@@ -1,15 +1,56 @@
 const prisma = require("../prisma");
 
+const GPS_FRESHNESS_MS = 2 * 60 * 1000;
+
+function hasFreshDriverLocation(delivery, now = Date.now()) {
+  const lastLocationAt =
+    delivery?.driver?.lastLocationAt instanceof Date
+      ? delivery.driver.lastLocationAt
+      : delivery?.driver?.lastLocationAt
+        ? new Date(delivery.driver.lastLocationAt)
+        : null;
+
+  const locationAgeMs =
+    lastLocationAt && !Number.isNaN(lastLocationAt.getTime())
+      ? now - lastLocationAt.getTime()
+      : null;
+
+  const hasValidCoordinates =
+    Number.isFinite(delivery?.driver?.latitude) &&
+    Number.isFinite(delivery?.driver?.longitude);
+
+  return (
+    delivery?.status === "OUT_FOR_DELIVERY" &&
+    hasValidCoordinates &&
+    locationAgeMs !== null &&
+    locationAgeMs >= 0 &&
+    locationAgeMs <= GPS_FRESHNESS_MS
+  );
+}
+
 /**
  * Consulta o status completo da entrega e a localização do entregador
  */
-async function trackDelivery({ orderId, deliveryId, orderNumber, tenantId }) {
+async function trackDelivery({
+  orderId,
+  deliveryId,
+  orderNumber,
+  tenantId,
+  userId
+}) {
   try {
+    if (!tenantId || !userId) {
+      return {
+        success: false,
+        message: "Contexto de usuário inválido para consultar a entrega."
+      };
+    }
+
     const whereConditions = [];
 
     if (deliveryId) whereConditions.push({ id: deliveryId });
-    if (orderId) whereConditions.push({ orderId: orderId });
-    if (orderNumber) whereConditions.push({ orderNumber: orderNumber });
+    if (orderId) whereConditions.push({ orderId });
+    if (orderNumber) whereConditions.push({ orderNumber });
 
     if (whereConditions.length === 0) {
       return {
@@ -18,11 +59,20 @@ async function trackDelivery({ orderId, deliveryId, orderNumber, tenantId }) {
       };
     }
 
-    // Filtra aplicando o tenantId para garantir o isolamento multi-tenant
+    /*
+     * A entrega só pode ser consultada quando pertence
+     * a um pedido do mesmo tenant e do usuário autenticado.
+     */
     const delivery = await prisma.delivery.findFirst({
       where: {
+        tenantId,
         OR: whereConditions,
-        ...(tenantId ? { tenantId } : {})
+        order: {
+          is: {
+            tenantId,
+            userId
+          }
+        }
       },
       include: {
         driver: {
@@ -48,7 +98,8 @@ async function trackDelivery({ orderId, deliveryId, orderNumber, tenantId }) {
       };
     }
 
-    const isMoving = delivery.status === "OUT_FOR_DELIVERY" && delivery.driver?.latitude;
+    const isMoving =
+      hasFreshDriverLocation(delivery);
 
     return {
       success: true,
@@ -232,7 +283,8 @@ const deliveryToolsDefinitions = [
 async function handleDeliveryTool({ name, args, context }) {
   const enrichedArgs = {
     ...args,
-    tenantId: context?.tenantId || args?.tenantId
+    tenantId: context?.tenantId,
+    userId: context?.userId
   };
 
   switch (name) {
@@ -251,5 +303,6 @@ module.exports = {
   trackDelivery,
   updateDriverLocation,
   deliveryToolsDefinitions,
-  handleDeliveryTool
+  handleDeliveryTool,
+  hasFreshDriverLocation
 };
