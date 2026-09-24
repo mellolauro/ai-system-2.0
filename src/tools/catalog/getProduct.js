@@ -82,7 +82,21 @@ module.exports = {
 
             },
 
-            include: {
+            select: {
+
+                id: true,
+
+                name: true,
+
+                description: true,
+
+                price: true,
+
+                stock: true,
+
+                imageUrl: true,
+
+                active: true,
 
                 images: {
 
