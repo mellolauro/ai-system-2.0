@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="referrer"
+    content="no-referrer"
+  >
+
+  <meta
+    name="robots"
+    content="noindex, nofollow, noarchive"
+  >
+
+  <title>Ativação do Entregador</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #f8fafc;
+      color: #0f172a;
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 460px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow:
+        0 10px 30px
+        rgba(15, 23, 42, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    .driver {
+      padding: 16px;
+      margin-bottom: 20px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+    }
+
+    .driver-label {
+      margin-bottom: 5px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .driver-name {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .expiry {
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    .notice {
+      margin-bottom: 20px;
+      padding: 14px;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      background: #eff6ff;
+      color: #1e40af;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .error {
+      padding: 16px;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      background: #fef2f2;
+      color: #991b1b;
+      line-height: 1.5;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 10px;
+      padding: 14px 18px;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
+
+    .security {
+      margin: 18px 0 0;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.5;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="card">
+
+    <h1>
+      Ativação do Entregador
+    </h1>
+
+    <div id="loading">
+      <p class="subtitle">
+        Validando convite...
+      </p>
+    </div>
+
+    <div
+      id="activationContent"
+      class="hidden"
+    >
+
+      <p class="subtitle">
+        Confirme abaixo para vincular este aparelho ao seu acesso de entregas.
+      </p>
+
+      <section class="driver">
+
+        <div class="driver-label">
+          Entregador
+        </div>
+
+        <div
+          id="driverName"
+          class="driver-name"
+        ></div>
+
+        <div class="expiry">
+          Convite válido até
+          <strong id="expiresAt"></strong>
+        </div>
+
+      </section>
+
+      <div class="notice">
+        Ative somente no aparelho que será utilizado pelo entregador.
+        Este convite funciona uma única vez.
+      </div>
+
+      <button
+        id="activateButton"
+        type="button"
+      >
+        Ativar este aparelho
+      </button>
+
+      <p class="security">
+        A ativação utiliza conexão HTTPS e cria uma sessão segura neste navegador.
+      </p>
+
+    </div>
+
+    <div
+      id="activationError"
+      class="hidden"
+    >
+
+      <p class="subtitle">
+        Não foi possível utilizar este convite.
+      </p>
+
+      <div
+        id="errorMessage"
+        class="error"
+      >
+        Convite inválido ou expirado.
+      </div>
+
+      <p class="security">
+        Solicite ao administrador um novo convite de ativação.
+      </p>
+
+    </div>
+
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const csrfToken =
+        <%- JSON.stringify(csrfToken) %>;
+
+      const loading =
+        document.getElementById("loading");
+
+      const content =
+        document.getElementById(
+          "activationContent"
+        );
+
+      const errorBox =
+        document.getElementById(
+          "activationError"
+        );
+
+      const errorMessage =
+        document.getElementById(
+          "errorMessage"
+        );
+
+      const driverName =
+        document.getElementById(
+          "driverName"
+        );
+
+      const expiresAt =
+        document.getElementById(
+          "expiresAt"
+        );
+
+      const activateButton =
+        document.getElementById(
+          "activateButton"
+        );
+
+      let token = "";
+
+      function showError(message) {
+        loading.classList.add("hidden");
+        content.classList.add("hidden");
+
+        errorMessage.textContent =
+          message ||
+          "Convite inválido ou expirado.";
+
+        errorBox.classList.remove("hidden");
+      }
+
+      async function postJson(url, body) {
+        const response =
+          await fetch(
+            url,
+            {
+              method: "POST",
+              credentials: "same-origin",
+              headers: {
+                "Content-Type":
+                  "application/json",
+                "X-Activation-CSRF":
+                  csrfToken
+              },
+              body:
+                JSON.stringify(body)
+            }
+          );
+
+        let data = null;
+
+        try {
+          data =
+            await response.json();
+        } catch {
+          data = {};
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+            "Não foi possível processar o convite."
+          );
+        }
+
+        return data;
+      }
+
+      async function inspectInvite() {
+        const fragment =
+          window.location.hash.slice(1);
+
+        try {
+          token =
+            decodeURIComponent(fragment);
+        } catch {
+          token = "";
+        }
+
+        /*
+         * Remove o segredo da barra de endereço assim
+         * que ele já estiver somente na memória da página.
+         */
+        history.replaceState(
+          null,
+          "",
+          window.location.pathname
+        );
+
+        if (!token) {
+          showError(
+            "Convite de ativação não informado."
+          );
+
+          return;
+        }
+
+        try {
+          const data =
+            await postJson(
+              "/driver/tracking/invite/inspect",
+              { token }
+            );
+
+          driverName.textContent =
+            data.driver.name;
+
+          expiresAt.textContent =
+            new Date(
+              data.expiresAt
+            ).toLocaleString("pt-BR");
+
+          loading.classList.add("hidden");
+          content.classList.remove("hidden");
+
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+
+      activateButton.addEventListener(
+        "click",
+        async () => {
+
+          activateButton.disabled = true;
+          activateButton.textContent =
+            "Ativando...";
+
+          try {
+            const data =
+              await postJson(
+                "/driver/tracking/invite/activate",
+                { token }
+              );
+
+            /*
+             * O segredo deixa de ser necessário imediatamente
+             * após o consumo bem-sucedido.
+             */
+            token = "";
+
+            window.location.replace(
+              data.redirect ||
+              "/driver/tracking"
+            );
+
+          } catch (error) {
+            token = "";
+
+            showError(error.message);
+          }
+        }
+      );
+
+      inspectInvite();
+    })();
+  </script>
+
+</body>
+
+</html>

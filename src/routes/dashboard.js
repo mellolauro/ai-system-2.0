@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const express = require("express");
 const router = express.Router();
 const prisma = require("../prisma");
@@ -7,6 +8,105 @@ const prisma = require("../prisma");
  * HELPERS
  * ============================================================
  */
+
+function getDriverInviteEncryptionKey() {
+
+    if (!process.env.SESSION_SECRET) {
+        throw new Error(
+            "SESSION_SECRET não configurado."
+        );
+    }
+
+    return crypto
+        .createHash("sha256")
+        .update(
+            String(
+                process.env.SESSION_SECRET
+            )
+        )
+        .digest();
+}
+
+
+function encryptDriverInviteToken(token) {
+
+    const iv =
+        crypto.randomBytes(12);
+
+    const cipher =
+        crypto.createCipheriv(
+            "aes-256-gcm",
+            getDriverInviteEncryptionKey(),
+            iv
+        );
+
+    const ciphertext =
+        Buffer.concat([
+            cipher.update(
+                String(token),
+                "utf8"
+            ),
+            cipher.final()
+        ]);
+
+    const tag =
+        cipher.getAuthTag();
+
+    return {
+        iv:
+            iv.toString("base64"),
+        tag:
+            tag.toString("base64"),
+        ciphertext:
+            ciphertext.toString("base64")
+    };
+}
+
+
+function decryptDriverInviteToken(payload) {
+
+    if (
+        !payload ||
+        !payload.iv ||
+        !payload.tag ||
+        !payload.ciphertext
+    ) {
+        throw new Error(
+            "Convite criptografado inválido."
+        );
+    }
+
+    const decipher =
+        crypto.createDecipheriv(
+            "aes-256-gcm",
+            getDriverInviteEncryptionKey(),
+            Buffer.from(
+                payload.iv,
+                "base64"
+            )
+        );
+
+    decipher.setAuthTag(
+        Buffer.from(
+            payload.tag,
+            "base64"
+        )
+    );
+
+    const plaintext =
+        Buffer.concat([
+            decipher.update(
+                Buffer.from(
+                    payload.ciphertext,
+                    "base64"
+                )
+            ),
+            decipher.final()
+        ]);
+
+    return plaintext.toString("utf8");
+}
+
 
 function nullable(value) {
 
@@ -295,11 +395,62 @@ router.get(
 
                 });
 
+            const storedDriverActivationInvite =
+                req.session.driverActivationInvite ||
+                null;
+
+            let driverActivationInvite =
+                null;
+
+            if (storedDriverActivationInvite) {
+
+                const token =
+                    decryptDriverInviteToken(
+                        storedDriverActivationInvite.encryptedToken
+                    );
+
+                driverActivationInvite = {
+                    driverId:
+                        storedDriverActivationInvite.driverId,
+
+                    driverName:
+                        storedDriverActivationInvite.driverName,
+
+                    token,
+
+                    expiresAt:
+                        storedDriverActivationInvite.expiresAt
+                };
+
+                delete req.session.driverActivationInvite;
+
+                await new Promise(
+                    (resolve, reject) => {
+
+                        req.session.save(
+                            (error) => {
+
+                                if (error) {
+                                    return reject(error);
+                                }
+
+                                resolve();
+
+                            }
+                        );
+
+                    }
+                );
+
+            }
+
             res.render(
                 "dashboard/drivers",
                 {
 
                     drivers,
+
+                    driverActivationInvite,
 
                     success:
                         req.query.success ||
@@ -743,6 +894,208 @@ router.post(
                         ? "Entregador ativado com sucesso."
                         : "Entregador desativado com sucesso."
                 )
+            );
+
+        } catch (err) {
+
+            next(err);
+
+        }
+
+    }
+);
+
+
+/*
+ * ============================================================
+ * ATIVAÇÃO DE DISPOSITIVO DO ENTREGADOR
+ * ============================================================
+ */
+
+// POST /dashboard/drivers/:id/activation
+// Gera convite temporário e de uso único para um novo dispositivo.
+router.post(
+    "/drivers/:id/activation",
+    async (
+        req,
+        res,
+        next
+    ) => {
+
+        try {
+
+            const {
+                id
+            } =
+                req.params;
+
+            const driver =
+                await prisma.driver.findUnique({
+
+                    where: {
+                        id
+                    },
+
+                    select: {
+                        id: true,
+                        name: true,
+                        active: true
+                    }
+
+                });
+
+            if (!driver) {
+
+                return res.redirect(
+                    "/dashboard/drivers?error=" +
+                    encodeURIComponent(
+                        "Entregador não encontrado."
+                    )
+                );
+
+            }
+
+            if (!driver.active) {
+
+                return res.redirect(
+                    "/dashboard/drivers?error=" +
+                    encodeURIComponent(
+                        "Ative o entregador antes de gerar um convite."
+                    )
+                );
+
+            }
+
+            const token =
+                crypto
+                    .randomBytes(32)
+                    .toString("hex");
+
+            const tokenHash =
+                crypto
+                    .createHash("sha256")
+                    .update(token)
+                    .digest("hex");
+
+            const now =
+                new Date();
+
+            const expiresAt =
+                new Date(
+                    now.getTime() +
+                    10 * 60 * 1000
+                );
+
+            const activation =
+                await prisma.$transaction(
+                    async (tx) => {
+
+                        await tx.driverActivation.updateMany({
+
+                            where: {
+                                driverId:
+                                    driver.id,
+
+                                usedAt:
+                                    null,
+
+                                revokedAt:
+                                    null
+                            },
+
+                            data: {
+                                revokedAt:
+                                    now
+                            }
+
+                        });
+
+                        return tx.driverActivation.create({
+
+                            data: {
+                                driverId:
+                                    driver.id,
+
+                                tokenHash,
+
+                                expiresAt
+                            },
+
+                            select: {
+                                id: true
+                            }
+
+                        });
+
+                    }
+                );
+
+            const encryptedToken =
+                encryptDriverInviteToken(
+                    token
+                );
+
+            req.session.driverActivationInvite = {
+                driverId:
+                    driver.id,
+
+                driverName:
+                    driver.name,
+
+                encryptedToken,
+
+                expiresAt:
+                    expiresAt.toISOString()
+            };
+
+            try {
+
+                await new Promise(
+                    (resolve, reject) => {
+
+                        req.session.save(
+                            (error) => {
+
+                                if (error) {
+                                    return reject(error);
+                                }
+
+                                resolve();
+
+                            }
+                        );
+
+                    }
+                );
+
+            } catch (sessionError) {
+
+                await prisma.driverActivation.updateMany({
+
+                    where: {
+                        id:
+                            activation.id,
+
+                        usedAt:
+                            null,
+
+                        revokedAt:
+                            null
+                    },
+
+                    data: {
+                        revokedAt:
+                            new Date()
+                    }
+
+                });
+
+                throw sessionError;
+
+            }
+
+            return res.redirect(
+                "/dashboard/drivers"
             );
 
         } catch (err) {

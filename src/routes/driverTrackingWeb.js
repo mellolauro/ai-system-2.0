@@ -4,6 +4,8 @@ const { rateLimit } = require("express-rate-limit");
 
 const {
   createTrackingSession,
+  inspectActivationInvite,
+  consumeActivationInvite,
   setSessionCookie
 } = require("../controllers/driverTrackingController");
 
@@ -104,6 +106,210 @@ function clearActivationCsrf(res) {
  * DRIVER TRACKING WEB
  * ============================================================
  */
+
+/*
+ * ============================================================
+ * CONVITE DE ATIVAÇÃO
+ * ============================================================
+ */
+
+function setActivationSecurityHeaders(res) {
+  res.set(
+    "Referrer-Policy",
+    "no-referrer"
+  );
+
+  res.set(
+    "Cache-Control",
+    "no-store"
+  );
+}
+
+
+router.get(
+  "/invite",
+  activationLimiter,
+  (req, res) => {
+
+    setActivationSecurityHeaders(res);
+
+    if (!req.secure) {
+      return res.status(403).send(
+        "A ativação do dispositivo exige uma conexão HTTPS segura."
+      );
+    }
+
+    const csrfToken =
+      createActivationCsrf(res);
+
+    return res.render(
+      "driver-activation",
+      {
+        layout: false,
+        csrfToken
+      }
+    );
+  }
+);
+
+
+router.post(
+  "/invite/inspect",
+  activationLimiter,
+  async (req, res) => {
+
+    setActivationSecurityHeaders(res);
+
+    if (!req.secure) {
+      return res.status(403).json({
+        success: false,
+        error:
+          "A ativação do dispositivo exige uma conexão HTTPS segura."
+      });
+    }
+
+    const csrfCookie =
+      getCookie(
+        req,
+        ACTIVATION_CSRF_COOKIE
+      );
+
+    const csrfHeader =
+      String(
+        req.get("X-Activation-CSRF") || ""
+      );
+
+    if (!safeEqual(csrfCookie, csrfHeader)) {
+      return res.status(403).json({
+        success: false,
+        error:
+          "Sessão de ativação inválida. Abra novamente o convite."
+      });
+    }
+
+    try {
+      const result =
+        await inspectActivationInvite(
+          req.body?.token
+        );
+
+      if (!result.success) {
+        return res
+          .status(result.status)
+          .json({
+            success: false,
+            error:
+              result.error
+          });
+      }
+
+      return res.status(200).json({
+        success: true,
+        driver: {
+          name:
+            result.driver.name
+        },
+        expiresAt:
+          result.expiresAt
+      });
+
+    } catch (error) {
+      console.error(
+        "Erro ao validar convite de ativação:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          "Erro interno ao validar o convite."
+      });
+    }
+  }
+);
+
+
+router.post(
+  "/invite/activate",
+  activationLimiter,
+  async (req, res) => {
+
+    setActivationSecurityHeaders(res);
+
+    if (!req.secure) {
+      return res.status(403).json({
+        success: false,
+        error:
+          "A ativação do dispositivo exige uma conexão HTTPS segura."
+      });
+    }
+
+    const csrfCookie =
+      getCookie(
+        req,
+        ACTIVATION_CSRF_COOKIE
+      );
+
+    const csrfHeader =
+      String(
+        req.get("X-Activation-CSRF") || ""
+      );
+
+    if (!safeEqual(csrfCookie, csrfHeader)) {
+      return res.status(403).json({
+        success: false,
+        error:
+          "Sessão de ativação inválida. Abra novamente o convite."
+      });
+    }
+
+    try {
+      const result =
+        await consumeActivationInvite(
+          req.body?.token
+        );
+
+      if (!result.success) {
+        clearActivationCsrf(res);
+
+        return res
+          .status(result.status)
+          .json({
+            success: false,
+            error:
+              result.error
+          });
+      }
+
+      setSessionCookie(
+        res,
+        result.sessionToken,
+        result.expiresAt
+      );
+
+      clearActivationCsrf(res);
+
+      return res.status(200).json({
+        success: true,
+        redirect:
+          "/driver/tracking"
+      });
+
+    } catch (error) {
+      console.error(
+        "Erro ao consumir convite de ativação:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          "Erro interno ao ativar o dispositivo."
+      });
+    }
+  }
+);
+
 
 router.get("/", (req, res) => {
   const csrfToken =
