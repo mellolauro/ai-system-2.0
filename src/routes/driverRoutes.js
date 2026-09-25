@@ -46,6 +46,12 @@ router.post(
   driverTrackingController.activate
 );
 
+// GET /api/drivers/deliveries
+router.get(
+  "/deliveries",
+  driverController.listMyDeliveries
+);
+
 // POST /api/drivers/location
 router.post(
   "/location",

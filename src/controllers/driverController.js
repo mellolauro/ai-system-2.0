@@ -110,8 +110,85 @@ async function authenticateTracking(req) {
     trackingTokenHash:
       session.device.tokenHash,
     sessionId: session.id,
+    driverId: session.device.driver.id,
     authType: "session"
   };
+}
+
+/**
+ * Lista as entregas ativas atribuídas ao motorista autenticado.
+ *
+ * O driverId é obtido exclusivamente da sessão segura.
+ * Nunca é aceito do navegador.
+ */
+async function listMyDeliveries(req, res) {
+  try {
+    const auth =
+      await authenticateTracking(req);
+
+    if (
+      !auth ||
+      auth.authType !== "session" ||
+      !auth.driverId
+    ) {
+      return res.status(401).json({
+        success: false,
+        error:
+          "Sessão do entregador inválida."
+      });
+    }
+
+    const deliveries =
+      await prisma.delivery.findMany({
+        where: {
+          driverId: auth.driverId,
+          status: {
+            in: [
+              "PENDING",
+              "OUT_FOR_DELIVERY"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          orderId: true,
+          orderNumber: true,
+          status: true,
+          recipientName: true,
+          addressLine: true,
+          city: true,
+          state: true,
+          zipCode: true,
+          reference: true,
+          estimatedDelivery: true,
+          createdAt: true
+        },
+        orderBy: [
+          {
+            estimatedDelivery: "asc"
+          },
+          {
+            createdAt: "asc"
+          }
+        ]
+      });
+
+    return res.status(200).json({
+      success: true,
+      deliveries
+    });
+  } catch (error) {
+    console.error(
+      "Erro ao listar entregas do motorista:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      error:
+        "Erro interno ao consultar entregas."
+    });
+  }
 }
 
 /**
@@ -233,5 +310,7 @@ async function updateLocation(req, res) {
 }
 
 module.exports = {
+  authenticateTracking,
+  listMyDeliveries,
   updateLocation
 };
