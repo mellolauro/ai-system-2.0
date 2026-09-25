@@ -98,8 +98,19 @@ async function trackDelivery({
       };
     }
 
-    const isMoving =
-      hasFreshDriverLocation(delivery);
+    const hasCoordinates =
+      Number.isFinite(delivery?.driver?.latitude) &&
+      Number.isFinite(delivery?.driver?.longitude);
+
+    const hasLocationTimestamp =
+      Boolean(delivery?.driver?.lastLocationAt);
+
+    const gpsStatus =
+      hasFreshDriverLocation(delivery)
+        ? "FRESH"
+        : hasCoordinates && hasLocationTimestamp
+          ? "STALE"
+          : "UNAVAILABLE";
 
     return {
       success: true,
@@ -114,16 +125,9 @@ async function trackDelivery({
       driver: delivery.driver
         ? {
             name: delivery.driver.name,
-            phone: delivery.driver.phone,
             vehicle: delivery.driver.vehicleInfo || delivery.driver.vehicle,
             plate: delivery.driver.plate,
-            location: isMoving
-              ? {
-                  latitude: delivery.driver.latitude,
-                  longitude: delivery.driver.longitude,
-                  updatedAt: delivery.driver.lastLocationAt
-                }
-              : null
+            gpsStatus
           }
         : null,
       estimatedDelivery: delivery.estimatedDelivery
