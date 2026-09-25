@@ -4,6 +4,8 @@ module.exports = [
 
     "getLatestOrder",
 
+    "trackDelivery",
+
     "cancelOrder",
 
     "searchProducts"
