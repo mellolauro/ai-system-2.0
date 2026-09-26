@@ -3,6 +3,10 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../prisma");
 
+const {
+    getDriverGpsStatus
+} = require("../utils/driverGps");
+
 /*
  * ============================================================
  * HELPERS
@@ -327,6 +331,17 @@ router.get(
 
                 });
 
+            const driversWithGpsStatus =
+                drivers.map(
+                    (driver) => ({
+                        ...driver,
+                        gpsStatus:
+                            getDriverGpsStatus(
+                                driver
+                            )
+                    })
+                );
+
             res.render(
                 "dashboard/tracking",
                 {
@@ -334,11 +349,12 @@ router.get(
                     title:
                         "Rastreamento GPS em Tempo Real",
 
-                    drivers,
+                    drivers:
+                        driversWithGpsStatus,
 
                     defaultDriverPhone:
-                        drivers.length > 0
-                            ? drivers[0].phone
+                        driversWithGpsStatus.length > 0
+                            ? driversWithGpsStatus[0].phone
                             : null
 
                 }
@@ -444,11 +460,23 @@ router.get(
 
             }
 
+            const driversWithGpsStatus =
+                drivers.map(
+                    (driver) => ({
+                        ...driver,
+                        gpsStatus:
+                            getDriverGpsStatus(
+                                driver
+                            )
+                    })
+                );
+
             res.render(
                 "dashboard/drivers",
                 {
 
-                    drivers,
+                    drivers:
+                        driversWithGpsStatus,
 
                     driverActivationInvite,
 

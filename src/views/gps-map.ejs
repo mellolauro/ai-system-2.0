@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rastreamento GPS - <%= driver.name %></title>
 
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
 
   <style>
     * {
@@ -14,16 +16,20 @@
       margin: 0;
       padding: 0;
     }
-    body, html {
+
+    body,
+    html {
       height: 100%;
       width: 100%;
       font-family: Arial, sans-serif;
     }
+
     #map {
       height: 100%;
       width: 100%;
       z-index: 1;
     }
+
     .info-card {
       position: absolute;
       top: 20px;
@@ -32,106 +38,423 @@
       background: rgba(255, 255, 255, 0.95);
       padding: 16px 20px;
       border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-      max-width: 320px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+      max-width: 340px;
       backdrop-filter: blur(5px);
     }
+
     .info-card h2 {
       font-size: 1.1rem;
       color: #1f2937;
       margin-bottom: 6px;
     }
+
     .info-card p {
       font-size: 0.875rem;
       color: #4b5563;
       margin-bottom: 4px;
     }
+
     .status-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       font-size: 0.75rem;
       font-weight: bold;
-      color: #059669;
-      background: #ecfdf5;
       padding: 4px 8px;
       border-radius: 20px;
       margin-top: 8px;
     }
-    .pulse-dot {
+
+    .status-fresh {
+      color: #059669;
+      background: #ecfdf5;
+    }
+
+    .status-stale {
+      color: #b45309;
+      background: #fffbeb;
+    }
+
+    .status-unavailable {
+      color: #64748b;
+      background: #f1f5f9;
+    }
+
+    .status-dot {
       width: 8px;
       height: 8px;
-      background-color: #10b981;
       border-radius: 50%;
-      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+
+    .status-fresh .status-dot {
+      background-color: #10b981;
+      box-shadow:
+        0 0 0 0 rgba(16, 185, 129, 0.7);
       animation: pulse 1.5s infinite;
     }
+
+    .status-stale .status-dot {
+      background-color: #f59e0b;
+    }
+
+    .status-unavailable .status-dot {
+      background-color: #94a3b8;
+    }
+
     @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-      70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+      0% {
+        box-shadow:
+          0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+
+      70% {
+        box-shadow:
+          0 0 0 10px rgba(16, 185, 129, 0);
+      }
+
+      100% {
+        box-shadow:
+          0 0 0 0 rgba(16, 185, 129, 0);
+      }
     }
   </style>
 </head>
+
 <body>
 
   <div class="info-card">
     <h2>🛵 <%= driver.name %></h2>
-    <p><strong>Veículo:</strong> <%= driver.vehicle || 'Não informado' %> (<%= driver.plate || 'Sem placa' %>)</p>
-    <p><strong>Telefone:</strong> <%= driver.phone %></p>
-    <div class="status-badge">
-      <div class="pulse-dot"></div> Rastreamento em Tempo Real
+
+    <p>
+      <strong>Veículo:</strong>
+      <%= driver.vehicle || "Não informado" %>
+      (<%= driver.plate || "Sem placa" %>)
+    </p>
+
+    <p>
+      <strong>Telefone:</strong>
+      <%= driver.phone %>
+    </p>
+
+    <p id="lastLocationText"></p>
+
+    <div
+      id="gpsStatusBadge"
+      class="status-badge status-unavailable"
+    >
+      <div class="status-dot"></div>
+
+      <span id="gpsStatusText">
+        Verificando sinal GPS...
+      </span>
     </div>
   </div>
 
   <div id="map"></div>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  ></script>
 
   <script>
-    const driverPhone = "<%= driver.phone %>";
-    let initialLat = <%= driver.latitude || -22.7561 %>;
-    let initialLng = <%= driver.longitude || -43.4602 %>;
+    const driverPhone =
+      <%- JSON.stringify(driver.phone) %>;
 
-    // Inicializa o mapa com Leaflet (OpenStreetMap)
-    const map = L.map('map').setView([initialLat, initialLng], 16);
+    const initialGpsStatus =
+      <%- JSON.stringify(driver.gpsStatus) %>;
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    const initialLatitude =
+      <%- JSON.stringify(driver.latitude) %>;
 
-    // Ícone personalizado para o entregador
-    const driverIcon = L.icon({
-      iconUrl: 'https://cdn-icons-png.flaticon.com/512/2972/2972531.png',
-      iconSize: [42, 42],
-      iconAnchor: [21, 21],
-      popupAnchor: [0, -20]
-    });
+    const initialLongitude =
+      <%- JSON.stringify(driver.longitude) %>;
 
-    const marker = L.marker([initialLat, initialLng], { icon: driverIcon }).addTo(map);
-    marker.bindPopup("<b><%= driver.name %></b><br>Em trânsito").openPopup();
+    const initialLastLocationAt =
+      <%- JSON.stringify(driver.lastLocationAt) %>;
 
-    // Função para atualizar a posição no mapa a cada 3s (Polling)
-    async function updateMapPosition() {
-      try {
-        const response = await fetch(`/api/gps/location/${driverPhone}`);
-        const data = await response.json();
+    const defaultPosition = [
+      -22.7561,
+      -43.4602
+    ];
 
-        if (data.success && data.latitude && data.longitude) {
-          const newPos = [data.latitude, data.longitude];
-          
-          // Move o marcador suavemente e re-centraliza o mapa
-          marker.setLatLng(newPos);
-          map.panTo(newPos, { animate: true, duration: 1.0 });
+    const map =
+      L.map("map").setView(
+        defaultPosition,
+        13
+      );
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution:
+          "© OpenStreetMap contributors"
+      }
+    ).addTo(map);
+
+    const driverIcon =
+      L.icon({
+        iconUrl:
+          "https://cdn-icons-png.flaticon.com/512/2972/2972531.png",
+        iconSize: [42, 42],
+        iconAnchor: [21, 21],
+        popupAnchor: [0, -20]
+      });
+
+    const statusBadge =
+      document.getElementById(
+        "gpsStatusBadge"
+      );
+
+    const statusText =
+      document.getElementById(
+        "gpsStatusText"
+      );
+
+    const lastLocationText =
+      document.getElementById(
+        "lastLocationText"
+      );
+
+    let marker = null;
+
+    function hasCoordinates(
+      latitude,
+      longitude
+    ) {
+      return (
+        latitude !== null &&
+        latitude !== undefined &&
+        longitude !== null &&
+        longitude !== undefined &&
+        Number.isFinite(
+          Number(latitude)
+        ) &&
+        Number.isFinite(
+          Number(longitude)
+        )
+      );
+    }
+
+    function formatDate(value) {
+      if (!value) {
+        return "";
+      }
+
+      const date =
+        new Date(value);
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        return "";
+      }
+
+      return date.toLocaleString(
+        "pt-BR"
+      );
+    }
+
+    function updateStatus(
+      gpsStatus,
+      lastLocationAt
+    ) {
+      statusBadge.className =
+        "status-badge";
+
+      if (gpsStatus === "FRESH") {
+        statusBadge.classList.add(
+          "status-fresh"
+        );
+
+        statusText.textContent =
+          "GPS ativo";
+
+        lastLocationText.textContent =
+          lastLocationAt
+            ? `Última atualização: ${formatDate(lastLocationAt)}`
+            : "";
+
+        return;
+      }
+
+      if (gpsStatus === "STALE") {
+        statusBadge.classList.add(
+          "status-stale"
+        );
+
+        statusText.textContent =
+          "Sinal desatualizado";
+
+        lastLocationText.textContent =
+          lastLocationAt
+            ? `Última posição: ${formatDate(lastLocationAt)}`
+            : "";
+
+        return;
+      }
+
+      statusBadge.classList.add(
+        "status-unavailable"
+      );
+
+      statusText.textContent =
+        "Sem sinal GPS";
+
+      lastLocationText.textContent =
+        "Localização indisponível";
+    }
+
+    function updateMarker(
+      latitude,
+      longitude,
+      gpsStatus
+    ) {
+      if (
+        !hasCoordinates(
+          latitude,
+          longitude
+        )
+      ) {
+        if (marker) {
+          map.removeLayer(marker);
+          marker = null;
         }
-      } catch (err) {
-        console.error("Erro ao atualizar posição GPS:", err);
+
+        return;
+      }
+
+      const position = [
+        Number(latitude),
+        Number(longitude)
+      ];
+
+      const popupContent =
+        gpsStatus === "FRESH"
+          ? "<b>GPS ativo</b><br>Posição atual"
+          : "<b>Sinal desatualizado</b><br>Última posição conhecida";
+
+      if (!marker) {
+        marker =
+          L.marker(
+            position,
+            {
+              icon: driverIcon
+            }
+          ).addTo(map);
+
+        marker.bindPopup(
+          popupContent
+        );
+
+        map.setView(
+          position,
+          16
+        );
+      } else {
+        marker.setLatLng(
+          position
+        );
+
+        marker.setPopupContent(
+          popupContent
+        );
+
+        if (
+          gpsStatus === "FRESH"
+        ) {
+          map.panTo(
+            position,
+            {
+              animate: true,
+              duration: 1
+            }
+          );
+        }
       }
     }
 
-    setInterval(updateMapPosition, 3000);
+    updateStatus(
+      initialGpsStatus,
+      initialLastLocationAt
+    );
+
+    if (
+      initialGpsStatus !==
+        "UNAVAILABLE" &&
+      hasCoordinates(
+        initialLatitude,
+        initialLongitude
+      )
+    ) {
+      updateMarker(
+        initialLatitude,
+        initialLongitude,
+        initialGpsStatus
+      );
+
+      marker.openPopup();
+    }
+
+    async function updateMapPosition() {
+      try {
+        const response =
+          await fetch(
+            `/api/gps/location/${encodeURIComponent(driverPhone)}`
+          );
+
+        const data =
+          await response.json();
+
+        if (
+          data.success &&
+          (
+            data.gpsStatus === "FRESH" ||
+            data.gpsStatus === "STALE"
+          )
+        ) {
+          updateStatus(
+            data.gpsStatus,
+            data.lastLocationAt
+          );
+
+          updateMarker(
+            data.latitude,
+            data.longitude,
+            data.gpsStatus
+          );
+
+          return;
+        }
+
+        updateStatus(
+          "UNAVAILABLE",
+          null
+        );
+
+        updateMarker(
+          null,
+          null,
+          "UNAVAILABLE"
+        );
+      } catch (error) {
+        console.error(
+          "Erro ao atualizar posição GPS:",
+          error
+        );
+      }
+    }
+
+    updateMapPosition();
+
+    setInterval(
+      updateMapPosition,
+      3000
+    );
   </script>
+
 </body>
 </html>

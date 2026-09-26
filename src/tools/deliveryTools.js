@@ -1,32 +1,9 @@
 const prisma = require("../prisma");
 
-const GPS_FRESHNESS_MS = 2 * 60 * 1000;
-
-function hasFreshDriverLocation(delivery, now = Date.now()) {
-  const lastLocationAt =
-    delivery?.driver?.lastLocationAt instanceof Date
-      ? delivery.driver.lastLocationAt
-      : delivery?.driver?.lastLocationAt
-        ? new Date(delivery.driver.lastLocationAt)
-        : null;
-
-  const locationAgeMs =
-    lastLocationAt && !Number.isNaN(lastLocationAt.getTime())
-      ? now - lastLocationAt.getTime()
-      : null;
-
-  const hasValidCoordinates =
-    Number.isFinite(delivery?.driver?.latitude) &&
-    Number.isFinite(delivery?.driver?.longitude);
-
-  return (
-    delivery?.status === "OUT_FOR_DELIVERY" &&
-    hasValidCoordinates &&
-    locationAgeMs !== null &&
-    locationAgeMs >= 0 &&
-    locationAgeMs <= GPS_FRESHNESS_MS
-  );
-}
+const {
+  getDriverGpsStatus,
+  hasFreshDriverLocation
+} = require("../utils/driverGps");
 
 /**
  * Consulta o status completo da entrega e a localização do entregador
@@ -98,19 +75,17 @@ async function trackDelivery({
       };
     }
 
-    const hasCoordinates =
-      Number.isFinite(delivery?.driver?.latitude) &&
-      Number.isFinite(delivery?.driver?.longitude);
-
-    const hasLocationTimestamp =
-      Boolean(delivery?.driver?.lastLocationAt);
+    const driverGpsStatus =
+      getDriverGpsStatus(
+        delivery?.driver
+      );
 
     const gpsStatus =
       hasFreshDriverLocation(delivery)
         ? "FRESH"
-        : hasCoordinates && hasLocationTimestamp
-          ? "STALE"
-          : "UNAVAILABLE";
+        : driverGpsStatus === "UNAVAILABLE"
+          ? "UNAVAILABLE"
+          : "STALE";
 
     return {
       success: true,

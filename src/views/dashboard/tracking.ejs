@@ -62,17 +62,59 @@
       const res = await fetch(`/api/gps/location/${encodeURIComponent(currentPhone)}`);
       const data = await res.json();
 
-      if (data.success && data.latitude && data.longitude) {
-        const pos = [data.latitude, data.longitude];
+      const hasCoordinates =
+        data.success &&
+        data.latitude !== null &&
+        data.latitude !== undefined &&
+        data.longitude !== null &&
+        data.longitude !== undefined &&
+        Number.isFinite(Number(data.latitude)) &&
+        Number.isFinite(Number(data.longitude));
+
+      if (hasCoordinates) {
+        const pos = [
+          Number(data.latitude),
+          Number(data.longitude)
+        ];
+
+        const popupContent =
+          data.gpsStatus === "FRESH"
+            ? "<b>GPS ativo</b><br>Posição atual"
+            : "<b>Sinal desatualizado</b><br>Última posição conhecida";
 
         if (!marker) {
-          marker = L.marker(pos, { icon: driverIcon }).addTo(map);
-          marker.bindPopup("<b>Entregador Ativo</b><br>Em trânsito").openPopup();
+          marker =
+            L.marker(
+              pos,
+              { icon: driverIcon }
+            ).addTo(map);
+
+          marker
+            .bindPopup(popupContent)
+            .openPopup();
+
           map.setView(pos, 16);
         } else {
           marker.setLatLng(pos);
-          map.panTo(pos, { animate: true, duration: 1 });
+          marker.setPopupContent(
+            popupContent
+          );
+
+          if (
+            data.gpsStatus === "FRESH"
+          ) {
+            map.panTo(
+              pos,
+              {
+                animate: true,
+                duration: 1
+              }
+            );
+          }
         }
+      } else if (marker) {
+        map.removeLayer(marker);
+        marker = null;
       }
     } catch (err) {
       console.error("Erro ao atualizar coordenadas:", err);

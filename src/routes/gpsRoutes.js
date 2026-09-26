@@ -2,6 +2,10 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../prisma");
 
+const {
+  getDriverGpsStatus
+} = require("../utils/driverGps");
+
 /**
  * GET /api/gps/map/:driverPhone
  * Renderiza o mapa web com Leaflet.js
@@ -33,7 +37,11 @@ router.get("/map/:driverPhone", async (req, res) => {
 
     res.render("gps-map", {
       layout: false, // Não utiliza o layout padrão para manter o mapa em tela cheia
-      driver
+      driver: {
+        ...driver,
+        gpsStatus:
+          getDriverGpsStatus(driver)
+      }
     });
   } catch (error) {
     console.error("Erro ao carregar mapa GPS:", error);
@@ -58,15 +66,33 @@ router.get("/location/:driverPhone", async (req, res) => {
       }
     });
 
-    if (!driver || driver.latitude === null || driver.longitude === null) {
-      return res.status(404).json({ success: false, message: "Sem sinal GPS." });
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        gpsStatus: "UNAVAILABLE",
+        message:
+          "Entregador não encontrado."
+      });
+    }
+
+    const gpsStatus =
+      getDriverGpsStatus(driver);
+
+    if (gpsStatus === "UNAVAILABLE") {
+      return res.status(404).json({
+        success: false,
+        gpsStatus,
+        message: "Sem sinal GPS."
+      });
     }
 
     res.json({
       success: true,
+      gpsStatus,
       latitude: driver.latitude,
       longitude: driver.longitude,
-      lastLocationAt: driver.lastLocationAt
+      lastLocationAt:
+        driver.lastLocationAt
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -286,8 +286,7 @@
                   <td class="p-4">
 
                     <% if (
-                      driver.latitude !== null &&
-                      driver.longitude !== null
+                      driver.gpsStatus === "FRESH"
                     ) { %>
 
                       <div class="space-y-1">
@@ -300,13 +299,29 @@
 
                         </span>
 
-                        <% if (driver.lastLocationAt) { %>
+                        <div class="text-xs text-slate-400">
+                          <%= new Date(driver.lastLocationAt).toLocaleString('pt-BR') %>
+                        </div>
 
-                          <div class="text-xs text-slate-400">
-                            <%= new Date(driver.lastLocationAt).toLocaleString('pt-BR') %>
-                          </div>
+                      </div>
 
-                        <% } %>
+                    <% } else if (
+                      driver.gpsStatus === "STALE"
+                    ) { %>
+
+                      <div class="space-y-1">
+
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
+
+                          <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+
+                          Sinal desatualizado
+
+                        </span>
+
+                        <div class="text-xs text-slate-400">
+                          <%= new Date(driver.lastLocationAt).toLocaleString('pt-BR') %>
+                        </div>
 
                       </div>
 
