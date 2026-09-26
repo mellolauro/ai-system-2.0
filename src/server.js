@@ -261,6 +261,7 @@ app.use(
 
 app.use(
     "/api/gps",
+    requireAuth,
     require("./routes/gpsRoutes")
 );
 
