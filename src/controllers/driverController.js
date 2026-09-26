@@ -144,9 +144,16 @@ async function listMyDeliveries(req, res) {
           driverId: auth.driverId,
           status: {
             in: [
+              "ASSIGNED",
               "PENDING",
+              "SHIPPED",
               "OUT_FOR_DELIVERY"
             ]
+          },
+          order: {
+            is: {
+              status: "SHIPPED"
+            }
           }
         },
         select: {
@@ -187,6 +194,187 @@ async function listMyDeliveries(req, res) {
       success: false,
       error:
         "Erro interno ao consultar entregas."
+    });
+  }
+}
+
+/**
+ * Inicia uma entrega atribuída ao motorista autenticado.
+ *
+ * O driverId vem exclusivamente da sessão segura.
+ */
+async function startDelivery(req, res) {
+  try {
+    const auth =
+      await authenticateTracking(req);
+
+    if (
+      !auth ||
+      auth.authType !== "session" ||
+      !auth.driverId
+    ) {
+      return res.status(401).json({
+        success: false,
+        error:
+          "Sessão do entregador inválida."
+      });
+    }
+
+    if (
+      String(
+        req.get("X-Driver-Tracking") || ""
+      ) !== "1"
+    ) {
+      return res.status(403).json({
+        success: false,
+        error:
+          "Requisição do entregador inválida."
+      });
+    }
+
+    const deliveryId =
+      String(req.params.id || "").trim();
+
+    if (!deliveryId) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "Entrega inválida."
+      });
+    }
+
+    const delivery =
+      await prisma.delivery.findFirst({
+        where: {
+          id: deliveryId,
+          driverId: auth.driverId
+        },
+        select: {
+          id: true,
+          status: true,
+          orderId: true,
+          order: {
+            select: {
+              status: true
+            }
+          }
+        }
+      });
+
+    if (!delivery) {
+      return res.status(404).json({
+        success: false,
+        error:
+          "Entrega não encontrada."
+      });
+    }
+
+    if (delivery.status === "OUT_FOR_DELIVERY") {
+      return res.status(200).json({
+        success: true,
+        delivery: {
+          id: delivery.id,
+          status: delivery.status
+        }
+      });
+    }
+
+    if (
+      !delivery.orderId ||
+      !delivery.order ||
+      delivery.order.status !== "SHIPPED"
+    ) {
+      return res.status(409).json({
+        success: false,
+        error:
+          "O pedido não está disponível para início da entrega."
+      });
+    }
+
+    const eligibleStatuses = [
+      "ASSIGNED",
+      "PENDING",
+      "SHIPPED"
+    ];
+
+    if (
+      !eligibleStatuses.includes(
+        delivery.status
+      )
+    ) {
+      return res.status(409).json({
+        success: false,
+        error:
+          "A entrega não está disponível para início."
+      });
+    }
+
+    const updated =
+      await prisma.delivery.updateMany({
+        where: {
+          id: delivery.id,
+          driverId: auth.driverId,
+          status: {
+            in: eligibleStatuses
+          },
+          order: {
+            is: {
+              status: "SHIPPED"
+            }
+          }
+        },
+        data: {
+          status: "OUT_FOR_DELIVERY"
+        }
+      });
+
+    if (updated.count !== 1) {
+      const current =
+        await prisma.delivery.findFirst({
+          where: {
+            id: delivery.id,
+            driverId: auth.driverId
+          },
+          select: {
+            id: true,
+            status: true
+          }
+        });
+
+      if (
+        current?.status ===
+        "OUT_FOR_DELIVERY"
+      ) {
+        return res.status(200).json({
+          success: true,
+          delivery: current
+        });
+      }
+
+      return res.status(409).json({
+        success: false,
+        error:
+          "A entrega foi alterada e não pode mais ser iniciada."
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      delivery: {
+        id: delivery.id,
+        status: "OUT_FOR_DELIVERY"
+      }
+    });
+  } catch (error) {
+    console.error(
+      "Erro ao iniciar entrega:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      error:
+        "Erro interno ao iniciar a entrega."
     });
   }
 }
@@ -312,5 +500,6 @@ async function updateLocation(req, res) {
 module.exports = {
   authenticateTracking,
   listMyDeliveries,
+  startDelivery,
   updateLocation
 };

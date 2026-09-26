@@ -52,6 +52,12 @@ router.get(
   driverController.listMyDeliveries
 );
 
+// POST /api/drivers/deliveries/:id/start
+router.post(
+  "/deliveries/:id/start",
+  driverController.startDelivery
+);
+
 // POST /api/drivers/location
 router.post(
   "/location",

@@ -145,6 +145,47 @@
       margin: 6px 0;
       line-height: 1.4;
     }
+
+    .deliveries-panel {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .deliveries-panel h2 {
+      margin: 0 0 12px;
+      font-size: 19px;
+    }
+
+    .deliveries-message {
+      margin: 0;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    .delivery-card {
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    .delivery-card p {
+      margin: 6px 0;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+
+    .delivery-card button {
+      margin-top: 12px;
+    }
+
+    .delivery-error {
+      margin-top: 10px;
+      color: #b91c1c;
+      line-height: 1.4;
+    }
   </style>
 </head>
 
@@ -278,6 +319,22 @@
             </span>
           </p>
         </div>
+
+        <div
+          id="deliveries-panel"
+          class="deliveries-panel"
+        >
+          <h2>Minhas entregas</h2>
+
+          <p
+            id="deliveries-message"
+            class="deliveries-message"
+          >
+            Carregando entregas...
+          </p>
+
+          <div id="deliveries-list"></div>
+        </div>
       </div>
     </section>
   </main>
@@ -321,6 +378,16 @@
     const serverStatus =
       document.getElementById("server-status");
 
+    const deliveriesMessage =
+      document.getElementById(
+        "deliveries-message"
+      );
+
+    const deliveriesList =
+      document.getElementById(
+        "deliveries-list"
+      );
+
     let watchId = null;
     let lastSendAt = 0;
     let lastAttemptAt = 0;
@@ -353,6 +420,226 @@
       activationBox.classList.add("hidden");
       driverInfo.classList.remove("hidden");
       trackingPanel.classList.remove("hidden");
+
+      loadDeliveries();
+    }
+
+    function deliveryStatusLabel(status) {
+      const labels = {
+        ASSIGNED: "Atribuída",
+        PENDING: "Pendente",
+        SHIPPED: "Pronta para entrega",
+        OUT_FOR_DELIVERY: "Em entrega"
+      };
+
+      return labels[status] || status;
+    }
+
+    function appendDeliveryField(
+      card,
+      label,
+      value
+    ) {
+      if (!value) {
+        return;
+      }
+
+      const paragraph =
+        document.createElement("p");
+
+      const strong =
+        document.createElement("strong");
+
+      strong.textContent = label + ": ";
+
+      paragraph.appendChild(strong);
+      paragraph.appendChild(
+        document.createTextNode(
+          String(value)
+        )
+      );
+
+      card.appendChild(paragraph);
+    }
+
+    async function startDelivery(
+      deliveryId,
+      button,
+      errorBox
+    ) {
+      button.disabled = true;
+      errorBox.textContent = "";
+
+      try {
+        const response =
+          await fetch(
+            "/api/drivers/deliveries/" +
+              encodeURIComponent(deliveryId) +
+              "/start",
+            {
+              method: "POST",
+              credentials: "same-origin",
+              headers: {
+                "X-Driver-Tracking": "1"
+              }
+            }
+          );
+
+        let data = null;
+
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+
+        if (response.status === 401) {
+          showActivation();
+          return;
+        }
+
+        if (!response.ok || !data?.success) {
+          errorBox.textContent =
+            data?.error ||
+            "Não foi possível iniciar a entrega.";
+
+          button.disabled = false;
+          return;
+        }
+
+        await loadDeliveries();
+      } catch (error) {
+        errorBox.textContent =
+          "Sem comunicação com o servidor.";
+
+        button.disabled = false;
+      }
+    }
+
+    function renderDeliveries(deliveries) {
+      deliveriesList.replaceChildren();
+
+      if (!deliveries.length) {
+        deliveriesMessage.textContent =
+          "Nenhuma entrega disponível.";
+        return;
+      }
+
+      deliveriesMessage.textContent = "";
+
+      for (const delivery of deliveries) {
+        const card =
+          document.createElement("div");
+
+        card.className = "delivery-card";
+
+        appendDeliveryField(
+          card,
+          "Pedido",
+          delivery.orderNumber
+        );
+
+        appendDeliveryField(
+          card,
+          "Destinatário",
+          delivery.recipientName
+        );
+
+        appendDeliveryField(
+          card,
+          "Endereço",
+          delivery.address
+        );
+
+        appendDeliveryField(
+          card,
+          "Status",
+          deliveryStatusLabel(
+            delivery.status
+          )
+        );
+
+        const errorBox =
+          document.createElement("div");
+
+        errorBox.className =
+          "delivery-error";
+
+        if (
+          delivery.status !==
+          "OUT_FOR_DELIVERY"
+        ) {
+          const button =
+            document.createElement("button");
+
+          button.type = "button";
+          button.textContent =
+            "Iniciar entrega";
+
+          button.addEventListener(
+            "click",
+            () => {
+              startDelivery(
+                delivery.id,
+                button,
+                errorBox
+              );
+            }
+          );
+
+          card.appendChild(button);
+        }
+
+        card.appendChild(errorBox);
+        deliveriesList.appendChild(card);
+      }
+    }
+
+    async function loadDeliveries() {
+      deliveriesMessage.textContent =
+        "Carregando entregas...";
+
+      deliveriesList.replaceChildren();
+
+      try {
+        const response =
+          await fetch(
+            "/api/drivers/deliveries",
+            {
+              credentials: "same-origin"
+            }
+          );
+
+        if (response.status === 401) {
+          showActivation();
+          return;
+        }
+
+        if (!response.ok) {
+          deliveriesMessage.textContent =
+            "Não foi possível carregar as entregas.";
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        if (
+          !data.success ||
+          !Array.isArray(data.deliveries)
+        ) {
+          deliveriesMessage.textContent =
+            "Não foi possível carregar as entregas.";
+          return;
+        }
+
+        renderDeliveries(
+          data.deliveries
+        );
+      } catch (error) {
+        deliveriesMessage.textContent =
+          "Sem comunicação com o servidor.";
+      }
     }
 
     function formatTime(value) {
