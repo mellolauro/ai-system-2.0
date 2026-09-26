@@ -516,6 +516,60 @@
       }
     }
 
+    async function completeDelivery(
+      deliveryId,
+      button,
+      errorBox
+    ) {
+      button.disabled = true;
+      errorBox.textContent = "";
+
+      try {
+        const response =
+          await fetch(
+            "/api/drivers/deliveries/" +
+              encodeURIComponent(deliveryId) +
+              "/complete",
+            {
+              method: "POST",
+              credentials: "same-origin",
+              headers: {
+                "X-Driver-Tracking": "1"
+              }
+            }
+          );
+
+        let data = null;
+
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+
+        if (response.status === 401) {
+          showActivation();
+          return;
+        }
+
+        if (!response.ok || !data?.success) {
+          errorBox.textContent =
+            data?.error ||
+            "Não foi possível concluir a entrega.";
+
+          button.disabled = false;
+          return;
+        }
+
+        await loadDeliveries();
+      } catch (error) {
+        errorBox.textContent =
+          "Sem comunicação com o servidor.";
+
+        button.disabled = false;
+      }
+    }
+
     function renderDeliveries(deliveries) {
       deliveriesList.replaceChildren();
 
@@ -565,14 +619,29 @@
         errorBox.className =
           "delivery-error";
 
+        const button =
+          document.createElement("button");
+
+        button.type = "button";
+
         if (
-          delivery.status !==
+          delivery.status ===
           "OUT_FOR_DELIVERY"
         ) {
-          const button =
-            document.createElement("button");
+          button.textContent =
+            "Concluir entrega";
 
-          button.type = "button";
+          button.addEventListener(
+            "click",
+            () => {
+              completeDelivery(
+                delivery.id,
+                button,
+                errorBox
+              );
+            }
+          );
+        } else {
           button.textContent =
             "Iniciar entrega";
 
@@ -586,10 +655,9 @@
               );
             }
           );
-
-          card.appendChild(button);
         }
 
+        card.appendChild(button);
         card.appendChild(errorBox);
         deliveriesList.appendChild(card);
       }

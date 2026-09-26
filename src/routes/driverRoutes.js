@@ -58,6 +58,12 @@ router.post(
   driverController.startDelivery
 );
 
+// POST /api/drivers/deliveries/:id/complete
+router.post(
+  "/deliveries/:id/complete",
+  driverController.completeDelivery
+);
+
 // POST /api/drivers/location
 router.post(
   "/location",

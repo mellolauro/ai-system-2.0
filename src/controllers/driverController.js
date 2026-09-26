@@ -380,6 +380,205 @@ async function startDelivery(req, res) {
 }
 
 /**
+ * Conclui uma entrega do motorista autenticado.
+ *
+ * Delivery e Order são atualizados atomicamente.
+ */
+async function completeDelivery(req, res) {
+  try {
+    const auth =
+      await authenticateTracking(req);
+
+    if (
+      !auth ||
+      auth.authType !== "session" ||
+      !auth.driverId
+    ) {
+      return res.status(401).json({
+        success: false,
+        error:
+          "Sessão do entregador inválida."
+      });
+    }
+
+    if (
+      String(
+        req.get("X-Driver-Tracking") || ""
+      ) !== "1"
+    ) {
+      return res.status(403).json({
+        success: false,
+        error:
+          "Requisição do entregador inválida."
+      });
+    }
+
+    const deliveryId =
+      String(req.params.id || "").trim();
+
+    if (!deliveryId) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "Entrega inválida."
+      });
+    }
+
+    const delivery =
+      await prisma.delivery.findFirst({
+        where: {
+          id: deliveryId,
+          driverId: auth.driverId
+        },
+        select: {
+          id: true,
+          status: true,
+          deliveredAt: true,
+          orderId: true,
+          order: {
+            select: {
+              status: true,
+              deliveredAt: true
+            }
+          }
+        }
+      });
+
+    if (!delivery) {
+      return res.status(404).json({
+        success: false,
+        error:
+          "Entrega não encontrada."
+      });
+    }
+
+    if (
+      delivery.status === "DELIVERED" &&
+      delivery.order?.status === "DELIVERED"
+    ) {
+      return res.status(200).json({
+        success: true,
+        delivery: {
+          id: delivery.id,
+          status: "DELIVERED",
+          deliveredAt:
+            delivery.deliveredAt ||
+            delivery.order.deliveredAt
+        }
+      });
+    }
+
+    if (
+      delivery.status !==
+      "OUT_FOR_DELIVERY"
+    ) {
+      return res.status(409).json({
+        success: false,
+        error:
+          "A entrega não está em andamento."
+      });
+    }
+
+    if (
+      !delivery.orderId ||
+      !delivery.order ||
+      delivery.order.status !== "SHIPPED"
+    ) {
+      return res.status(409).json({
+        success: false,
+        error:
+          "O pedido não está disponível para conclusão."
+      });
+    }
+
+    const deliveredAt = new Date();
+
+    const result =
+      await prisma.$transaction(
+        async (tx) => {
+          const deliveryUpdate =
+            await tx.delivery.updateMany({
+              where: {
+                id: delivery.id,
+                driverId: auth.driverId,
+                status:
+                  "OUT_FOR_DELIVERY",
+                order: {
+                  is: {
+                    status: "SHIPPED"
+                  }
+                }
+              },
+              data: {
+                status: "DELIVERED",
+                deliveredAt
+              }
+            });
+
+          if (deliveryUpdate.count !== 1) {
+            throw new Error(
+              "DELIVERY_STATE_CHANGED"
+            );
+          }
+
+          const orderUpdate =
+            await tx.order.updateMany({
+              where: {
+                id: delivery.orderId,
+                status: "SHIPPED"
+              },
+              data: {
+                status: "DELIVERED",
+                deliveredAt
+              }
+            });
+
+          if (orderUpdate.count !== 1) {
+            throw new Error(
+              "ORDER_STATE_CHANGED"
+            );
+          }
+
+          return {
+            id: delivery.id,
+            status: "DELIVERED",
+            deliveredAt
+          };
+        }
+      );
+
+    return res.status(200).json({
+      success: true,
+      delivery: result
+    });
+  } catch (error) {
+    if (
+      error?.message ===
+        "DELIVERY_STATE_CHANGED" ||
+      error?.message ===
+        "ORDER_STATE_CHANGED"
+    ) {
+      return res.status(409).json({
+        success: false,
+        error:
+          "A entrega foi alterada e não pode mais ser concluída."
+      });
+    }
+
+    console.error(
+      "Erro ao concluir entrega:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      error:
+        "Erro interno ao concluir a entrega."
+    });
+  }
+}
+
+/**
  * Controller para atualização autenticada da localização
  * do entregador em tempo real.
  */
@@ -501,5 +700,6 @@ module.exports = {
   authenticateTracking,
   listMyDeliveries,
   startDelivery,
+  completeDelivery,
   updateLocation
 };
