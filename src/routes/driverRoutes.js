@@ -64,6 +64,12 @@ router.post(
   driverController.completeDelivery
 );
 
+// POST /api/drivers/tracking/heartbeat
+router.post(
+  "/tracking/heartbeat",
+  driverController.heartbeat
+);
+
 // POST /api/drivers/location
 router.post(
   "/location",

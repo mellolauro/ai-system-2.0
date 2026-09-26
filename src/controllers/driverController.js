@@ -579,6 +579,141 @@ async function completeDelivery(req, res) {
 }
 
 /**
+ * Registra atividade do dispositivo de rastreamento
+ * sem criar ou alterar uma posição GPS.
+ */
+async function heartbeat(req, res) {
+  try {
+    const auth =
+      await authenticateTracking(req);
+
+    if (
+      !auth ||
+      auth.authType !== "session" ||
+      !auth.sessionId ||
+      !auth.driverId
+    ) {
+      return res.status(401).json({
+        success: false,
+        error:
+          "Sessão do entregador inválida."
+      });
+    }
+
+    if (
+      String(
+        req.get("X-Driver-Tracking") || ""
+      ) !== "1"
+    ) {
+      return res.status(403).json({
+        success: false,
+        error:
+          "Requisição de rastreamento inválida."
+      });
+    }
+
+    const now = new Date();
+
+    const result =
+      await prisma.$transaction(
+        async (tx) => {
+          const session =
+            await tx.driverTrackingSession.updateMany({
+              where: {
+                id: auth.sessionId,
+                revokedAt: null,
+                expiresAt: {
+                  gt: now
+                },
+                device: {
+                  is: {
+                    active: true,
+                    revokedAt: null,
+                    driverId:
+                      auth.driverId,
+                    driver: {
+                      is: {
+                        active: true
+                      }
+                    }
+                  }
+                }
+              },
+              data: {
+                lastSeenAt: now
+              }
+            });
+
+          if (session.count !== 1) {
+            throw new Error(
+              "TRACKING_SESSION_CHANGED"
+            );
+          }
+
+          const device =
+            await tx.driverTrackingDevice.updateMany({
+              where: {
+                driverId:
+                  auth.driverId,
+                active: true,
+                revokedAt: null,
+                sessions: {
+                  some: {
+                    id: auth.sessionId,
+                    revokedAt: null,
+                    expiresAt: {
+                      gt: now
+                    }
+                  }
+                }
+              },
+              data: {
+                lastSeenAt: now
+              }
+            });
+
+          if (device.count !== 1) {
+            throw new Error(
+              "TRACKING_DEVICE_CHANGED"
+            );
+          }
+
+          return now;
+        }
+      );
+
+    return res.status(200).json({
+      success: true,
+      timestamp: result
+    });
+  } catch (error) {
+    if (
+      error?.message ===
+        "TRACKING_SESSION_CHANGED" ||
+      error?.message ===
+        "TRACKING_DEVICE_CHANGED"
+    ) {
+      return res.status(401).json({
+        success: false,
+        error:
+          "Sessão do entregador inválida."
+      });
+    }
+
+    console.error(
+      "Erro no heartbeat do rastreamento:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      error:
+        "Erro interno no heartbeat do rastreamento."
+    });
+  }
+}
+
+/**
  * Controller para atualização autenticada da localização
  * do entregador em tempo real.
  */
@@ -701,5 +836,6 @@ module.exports = {
   listMyDeliveries,
   startDelivery,
   completeDelivery,
+  heartbeat,
   updateLocation
 };
