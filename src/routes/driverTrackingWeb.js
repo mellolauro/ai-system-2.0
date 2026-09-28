@@ -3,7 +3,6 @@ const express = require("express");
 const { rateLimit } = require("express-rate-limit");
 
 const {
-  createTrackingSession,
   inspectActivationInvite,
   consumeActivationInvite,
   setSessionCookie
@@ -312,113 +311,11 @@ router.post(
 
 
 router.get("/", (req, res) => {
-  const csrfToken =
-    createActivationCsrf(res);
-
   res.render("driver-tracking", {
-    layout: false,
-    csrfToken,
-    activationError: null
+    layout: false
   });
 });
 
-router.post(
-  "/activate",
-  activationLimiter,
-  async (req, res) => {
-    if (!req.secure) {
-      const csrfToken =
-        createActivationCsrf(res);
 
-      return res.status(403).render(
-        "driver-tracking",
-        {
-          layout: false,
-          csrfToken,
-          activationError:
-            "A ativação do dispositivo exige uma conexão HTTPS segura."
-        }
-      );
-    }
-
-    const csrfCookie =
-      getCookie(
-        req,
-        ACTIVATION_CSRF_COOKIE
-      );
-
-    const csrfForm =
-      String(req.body?._csrf || "");
-
-    if (!safeEqual(csrfCookie, csrfForm)) {
-      const csrfToken =
-        createActivationCsrf(res);
-
-      return res.status(403).render(
-        "driver-tracking",
-        {
-          layout: false,
-          csrfToken,
-          activationError:
-            "Sessão de ativação inválida. Tente novamente."
-        }
-      );
-    }
-
-    try {
-      const result =
-        await createTrackingSession(
-          req.body?.token
-        );
-
-      if (!result.success) {
-        const csrfToken =
-          createActivationCsrf(res);
-
-        return res
-          .status(result.status)
-          .render(
-            "driver-tracking",
-            {
-              layout: false,
-              csrfToken,
-              activationError:
-                result.error
-            }
-          );
-      }
-
-      setSessionCookie(
-        res,
-        result.sessionToken,
-        result.expiresAt
-      );
-
-      clearActivationCsrf(res);
-
-      return res.redirect(
-        "/driver/tracking"
-      );
-    } catch (error) {
-      console.error(
-        "Erro na ativação web do rastreamento:",
-        error
-      );
-
-      const csrfToken =
-        createActivationCsrf(res);
-
-      return res.status(500).render(
-        "driver-tracking",
-        {
-          layout: false,
-          csrfToken,
-          activationError:
-            "Erro interno ao ativar o dispositivo."
-        }
-      );
-    }
-  }
-);
 
 module.exports = router;

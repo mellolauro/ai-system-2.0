@@ -148,6 +148,28 @@
       margin: 4px 0;
     }
 
+    .driver-label {
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    .driver-name {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .activation-message {
+      padding: 16px;
+      border-radius: 10px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      line-height: 1.5;
+    }
+
+    .activation-message p {
+      margin: 6px 0 0;
+    }
+
     .tracking-panel {
       margin-top: 20px;
       padding-top: 20px;
@@ -218,11 +240,11 @@
 <body>
   <main class="container">
     <section class="card">
-      <h1>Rastreamento de entrega</h1>
+      <h1>Entregas</h1>
 
       <p class="subtitle">
-        Ative este dispositivo e inicie
-        o envio seguro da localização.
+        Acompanhe suas entregas e mantenha
+        sua localização atualizada.
       </p>
 
       <div
@@ -237,58 +259,26 @@
         id="activation"
         class="hidden"
       >
-        <form
-          method="POST"
-          action="/driver/tracking/activate"
-        >
-          <input
-            type="hidden"
-            name="_csrf"
-            value="<%= csrfToken %>"
-          >
-
-          <label for="token">
-            Código de ativação
-          </label>
-
-          <input
-            id="token"
-            name="token"
-            type="password"
-            autocomplete="off"
-            required
-          >
-
-          <button type="submit">
-            Ativar dispositivo
-          </button>
-        </form>
-
-        <% if (activationError) { %>
-          <div class="error">
-            <%= activationError %>
-          </div>
-        <% } %>
+        <div class="activation-message">
+          <strong>Este celular não está ativado.</strong>
+          <p>
+            Solicite ao administrador uma nova
+            ativação pelo WhatsApp.
+          </p>
+        </div>
       </div>
 
       <div
         id="driver-info"
         class="driver-info hidden"
       >
-        <p>
-          <strong>Entregador:</strong>
-          <span id="driver-name"></span>
+        <p class="driver-label">
+          Entregador
         </p>
-
-        <p>
-          <strong>Dispositivo:</strong>
-          <span id="device-name"></span>
-        </p>
-
-        <p>
-          <strong>Sessão:</strong>
-          ativa
-        </p>
+        <p
+          id="driver-name"
+          class="driver-name"
+        ></p>
       </div>
 
       <div
@@ -325,25 +315,21 @@
           </p>
 
           <p>
-            <strong>Precisão:</strong>
-            <span id="gps-accuracy">
-              —
-            </span>
-          </p>
-
-          <p>
             <strong>Último envio:</strong>
             <span id="last-sent">
               —
             </span>
           </p>
 
-          <p>
-            <strong>Servidor:</strong>
-            <span id="server-status">
-              aguardando
-            </span>
-          </p>
+          <span
+            id="gps-accuracy"
+            class="hidden"
+          ></span>
+
+          <span
+            id="server-status"
+            class="hidden"
+          ></span>
         </div>
 
         <div
@@ -400,9 +386,6 @@
     const driverName =
       document.getElementById("driver-name");
 
-    const deviceName =
-      document.getElementById("device-name");
-
     const trackingPanel =
       document.getElementById("tracking-panel");
 
@@ -446,8 +429,8 @@
       stopTracking();
 
       statusBox.innerHTML =
-        "<strong>Dispositivo não ativado.</strong>" +
-        " Informe o código de ativação.";
+        "<strong>Ativação necessária.</strong>" +
+        " Solicite uma nova ativação pelo WhatsApp.";
 
       activationBox.classList.remove("hidden");
       driverInfo.classList.add("hidden");
@@ -456,14 +439,11 @@
 
     function showSession(data) {
       statusBox.innerHTML =
-        "<strong>Dispositivo ativado.</strong>" +
-        " Sessão de rastreamento válida.";
+        "<strong>Pronto para trabalhar.</strong>" +
+        " Inicie o rastreamento para enviar sua localização.";
 
       driverName.textContent =
         data.driver?.name || "Não informado";
-
-      deviceName.textContent =
-        data.device?.name || "Não informado";
 
       activationBox.classList.add("hidden");
       driverInfo.classList.remove("hidden");
