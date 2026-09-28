@@ -432,6 +432,9 @@ router.get(
                     driverName:
                         storedDriverActivationInvite.driverName,
 
+                    driverPhone:
+                        storedDriverActivationInvite.driverPhone,
+
                     token,
 
                     expiresAt:
@@ -967,6 +970,7 @@ router.post(
                     select: {
                         id: true,
                         name: true,
+                        phone: true,
                         active: true
                     }
 
@@ -1069,6 +1073,9 @@ router.post(
 
                 driverName:
                     driver.name,
+
+                driverPhone:
+                    driver.phone,
 
                 encryptedToken,
 
