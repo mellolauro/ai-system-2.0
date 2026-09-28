@@ -894,36 +894,175 @@ router.post(
             const newActive =
                 !driver.active;
 
-            await prisma.driver.update({
+            /*
+             * Um entregador com trabalho pendente não pode
+             * ser desativado. Primeiro a entrega deve ser
+             * concluída ou transferida para outro entregador.
+             */
+            if (!newActive) {
 
-                where: {
-                    id
-                },
+                const pendingDelivery =
+                    await prisma.delivery.findFirst({
 
-                data: {
+                        where: {
+                            driverId:
+                                id,
+                            status: {
+                                in: [
+                                    "ASSIGNED",
+                                    "PENDING",
+                                    "SHIPPED",
+                                    "OUT_FOR_DELIVERY"
+                                ]
+                            }
+                        },
 
-                    active:
-                        newActive,
+                        select: {
+                            id:
+                                true
+                        }
 
-                    /*
-                     * Ao desativar, fica OFFLINE.
-                     * Ao reativar, volta AVAILABLE.
-                     */
-                    status:
-                        newActive
-                            ? "AVAILABLE"
-                            : "OFFLINE"
+                    });
+
+                if (pendingDelivery) {
+
+                    return res.redirect(
+                        "/dashboard/drivers?error=" +
+                        encodeURIComponent(
+                            "Não é possível desativar este entregador enquanto houver entregas pendentes. Conclua ou transfira as entregas antes de desativá-lo."
+                        )
+                    );
 
                 }
 
-            });
+            }
+
+            const now =
+                new Date();
+
+            await prisma.$transaction(
+                async (tx) => {
+
+                    await tx.driver.update({
+
+                        where: {
+                            id
+                        },
+
+                        data: {
+
+                            active:
+                                newActive,
+
+                            status:
+                                newActive
+                                    ? "AVAILABLE"
+                                    : "OFFLINE"
+
+                        }
+
+                    });
+
+                    /*
+                     * Ao desativar, revoga imediatamente
+                     * todos os acessos de rastreamento.
+                     *
+                     * Ao reativar, os dispositivos antigos
+                     * permanecem revogados. Um novo convite
+                     * deverá ser enviado pelo WhatsApp.
+                     */
+                    if (!newActive) {
+
+                        const devices =
+                            await tx.driverTrackingDevice.findMany({
+
+                                where: {
+                                    driverId:
+                                        id
+                                },
+
+                                select: {
+                                    id:
+                                        true
+                                }
+
+                            });
+
+                        const deviceIds =
+                            devices.map(
+                                (device) =>
+                                    device.id
+                            );
+
+                        if (deviceIds.length > 0) {
+
+                            await tx.driverTrackingSession.updateMany({
+
+                                where: {
+                                    deviceId: {
+                                        in:
+                                            deviceIds
+                                    },
+                                    revokedAt:
+                                        null
+                                },
+
+                                data: {
+                                    revokedAt:
+                                        now
+                                }
+
+                            });
+
+                        }
+
+                        await tx.driverTrackingDevice.updateMany({
+
+                            where: {
+                                driverId:
+                                    id,
+                                revokedAt:
+                                    null
+                            },
+
+                            data: {
+                                active:
+                                    false,
+                                revokedAt:
+                                    now
+                            }
+
+                        });
+
+                        await tx.driverActivation.updateMany({
+
+                            where: {
+                                driverId:
+                                    id,
+                                usedAt:
+                                    null,
+                                revokedAt:
+                                    null
+                            },
+
+                            data: {
+                                revokedAt:
+                                    now
+                            }
+
+                        });
+
+                    }
+
+                }
+            );
 
             return res.redirect(
                 "/dashboard/drivers?success=" +
                 encodeURIComponent(
                     newActive
-                        ? "Entregador ativado com sucesso."
-                        : "Entregador desativado com sucesso."
+                        ? "Entregador ativado com sucesso. Envie uma nova ativação pelo WhatsApp para liberar o celular."
+                        : "Entregador desativado com sucesso. Os acessos de rastreamento foram revogados."
                 )
             );
 
