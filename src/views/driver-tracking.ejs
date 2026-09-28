@@ -8,7 +8,33 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Rastreamento do Entregador</title>
+  <title>Entregas</title>
+
+  <meta
+    name="theme-color"
+    content="#2563eb"
+  >
+
+  <meta
+    name="application-name"
+    content="Entregas"
+  >
+
+  <meta
+    name="mobile-web-app-capable"
+    content="yes"
+  >
+
+  <link
+    rel="manifest"
+    href="/driver-manifest.webmanifest"
+  >
+
+  <link
+    rel="icon"
+    href="/pwa/entregas-icon.svg"
+    type="image/svg+xml"
+  >
 
   <style>
     * {
@@ -340,6 +366,24 @@
   </main>
 
   <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener(
+        "load",
+        () => {
+          navigator.serviceWorker
+            .register("/driver-sw.js", {
+              scope: "/driver/"
+            })
+            .catch((error) => {
+              console.error(
+                "Não foi possível registrar o aplicativo de entregas:",
+                error
+              );
+            });
+        }
+      );
+    }
+
     const SEND_INTERVAL_MS = 5000;
     const HEARTBEAT_INTERVAL_MS =
       60 * 1000;

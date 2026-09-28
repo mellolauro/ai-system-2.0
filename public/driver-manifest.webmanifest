@@ -1,0 +1,21 @@
+{
+  "id": "/driver/tracking",
+  "name": "Entregas - TechnoShopping",
+  "short_name": "Entregas",
+  "description": "Aplicativo de entregas e rastreamento do entregador.",
+  "lang": "pt-BR",
+  "start_url": "/driver/tracking",
+  "scope": "/driver/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f1f5f9",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/pwa/entregas-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
