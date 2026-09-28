@@ -3,11 +3,15 @@ const crypto = require("crypto");
 const prisma = require("../prisma");
 
 const {
+  DRIVER_SESSION_COOKIE,
+  SESSION_DURATION_MS,
+  SESSION_RENEWAL_THRESHOLD_MS,
+  setSessionCookie
+} = require("./driverTrackingController");
+
+const {
   updateDriverLocation
 } = require("../tools/deliveryTools");
-
-const DRIVER_SESSION_COOKIE =
-  "driver_tracking_session";
 
 function hashToken(token) {
   return crypto
@@ -110,6 +114,9 @@ async function authenticateTracking(req) {
     trackingTokenHash:
       session.device.tokenHash,
     sessionId: session.id,
+    sessionToken,
+    sessionExpiresAt:
+      session.expiresAt,
     driverId: session.device.driver.id,
     authType: "session"
   };
@@ -614,6 +621,20 @@ async function heartbeat(req, res) {
 
     const now = new Date();
 
+    const shouldRenewSession =
+      auth.sessionExpiresAt instanceof Date &&
+      auth.sessionExpiresAt.getTime() -
+        now.getTime() <=
+        SESSION_RENEWAL_THRESHOLD_MS;
+
+    const renewedExpiresAt =
+      shouldRenewSession
+        ? new Date(
+            now.getTime() +
+              SESSION_DURATION_MS
+          )
+        : auth.sessionExpiresAt;
+
     const result =
       await prisma.$transaction(
         async (tx) => {
@@ -640,7 +661,13 @@ async function heartbeat(req, res) {
                 }
               },
               data: {
-                lastSeenAt: now
+                lastSeenAt: now,
+                ...(shouldRenewSession
+                  ? {
+                      expiresAt:
+                        renewedExpiresAt
+                    }
+                  : {})
               }
             });
 
@@ -678,13 +705,25 @@ async function heartbeat(req, res) {
             );
           }
 
-          return now;
+          return {
+            timestamp: now,
+            expiresAt:
+              renewedExpiresAt
+          };
         }
       );
 
+    setSessionCookie(
+      res,
+      auth.sessionToken,
+      result.expiresAt
+    );
+
     return res.status(200).json({
       success: true,
-      timestamp: result
+      timestamp: result.timestamp,
+      expiresAt: result.expiresAt,
+      renewed: shouldRenewSession
     });
   } catch (error) {
     if (

@@ -6,7 +6,10 @@ const DRIVER_SESSION_COOKIE =
   "driver_tracking_session";
 
 const SESSION_DURATION_MS =
-  24 * 60 * 60 * 1000;
+  30 * 24 * 60 * 60 * 1000;
+
+const SESSION_RENEWAL_THRESHOLD_MS =
+  7 * 24 * 60 * 60 * 1000;
 
 function hashToken(token) {
   return crypto
@@ -523,6 +526,9 @@ async function activate(req, res) {
 }
 
 module.exports = {
+  DRIVER_SESSION_COOKIE,
+  SESSION_DURATION_MS,
+  SESSION_RENEWAL_THRESHOLD_MS,
   activate,
   getSession,
   createTrackingSession,
