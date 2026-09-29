@@ -627,10 +627,25 @@
           delivery.recipientName
         );
 
+        const address = [
+          delivery.addressLine,
+          delivery.city,
+          delivery.state,
+          delivery.zipCode
+        ]
+          .filter(Boolean)
+          .join(", ");
+
         appendDeliveryField(
           card,
           "Endereço",
-          delivery.address
+          address
+        );
+
+        appendDeliveryField(
+          card,
+          "Referência",
+          delivery.reference
         );
 
         appendDeliveryField(

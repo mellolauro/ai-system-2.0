@@ -175,7 +175,17 @@ async function listMyDeliveries(req, res) {
           zipCode: true,
           reference: true,
           estimatedDelivery: true,
-          createdAt: true
+          createdAt: true,
+          order: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  name: true
+                }
+              }
+            }
+          }
         },
         orderBy: [
           {
@@ -187,9 +197,37 @@ async function listMyDeliveries(req, res) {
         ]
       });
 
+    const deliveryItems =
+      deliveries.map((delivery) => ({
+        id: delivery.id,
+        orderId: delivery.orderId,
+        orderNumber:
+          delivery.orderNumber ||
+          (
+            delivery.order?.id
+              ? delivery.order.id
+                  .slice(-8)
+                  .toUpperCase()
+              : null
+          ),
+        status: delivery.status,
+        recipientName:
+          delivery.recipientName ||
+          delivery.order?.user?.name ||
+          null,
+        addressLine: delivery.addressLine,
+        city: delivery.city,
+        state: delivery.state,
+        zipCode: delivery.zipCode,
+        reference: delivery.reference,
+        estimatedDelivery:
+          delivery.estimatedDelivery,
+        createdAt: delivery.createdAt
+      }));
+
     return res.status(200).json({
       success: true,
-      deliveries
+      deliveries: deliveryItems
     });
   } catch (error) {
     console.error(
