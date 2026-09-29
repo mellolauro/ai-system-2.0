@@ -906,6 +906,83 @@ router.post(
 
 
       /*
+       * Se houver entregador informado, validamos antes
+       * de alterar qualquer dado do pedido.
+       *
+       * O entregador precisa existir, estar ativo
+       * e pertencer ao mesmo tenant do pedido.
+       */
+      let currentOrder = null;
+
+      if (driverId) {
+
+        currentOrder =
+          await prisma.order.findUnique({
+
+            where: {
+              id
+            },
+
+            select: {
+              tenantId:
+                true
+            }
+
+          });
+
+        if (!currentOrder) {
+
+          return res
+            .status(404)
+            .send(
+              "Pedido não encontrado"
+            );
+
+        }
+
+        const driver =
+          await prisma.driver.findFirst({
+
+            where: {
+
+              id:
+                driverId,
+
+              tenantId:
+                currentOrder.tenantId,
+
+              active:
+                true
+
+            },
+
+            select: {
+              id:
+                true
+            }
+
+          });
+
+        if (!driver) {
+
+          return res
+            .status(400)
+            .send(
+              "Entregador inválido ou desativado."
+            );
+
+        }
+
+        /*
+         * Ao atribuir um entregador, o pedido passa a estar
+         * disponível para o fluxo de entrega do motorista.
+         */
+        status =
+          "SHIPPED";
+
+      }
+
+      /*
        * Atualiza o pedido.
        */
       await prisma.order.update({
@@ -997,28 +1074,13 @@ router.post(
               driverId,
 
               status:
-                status ||
-                "PENDING"
+                "ASSIGNED"
 
             }
 
           });
 
         } else {
-
-          const currentOrder =
-            await prisma.order.findUnique({
-
-              where: {
-                id
-              },
-
-              select: {
-                tenantId:
-                  true
-              }
-
-            });
 
           await prisma.delivery.create({
 
@@ -1030,12 +1092,10 @@ router.post(
               driverId,
 
               status:
-                status ||
-                "PENDING",
+                "ASSIGNED",
 
               tenantId:
-                currentOrder?.tenantId ||
-                null
+                currentOrder.tenantId
 
             }
 

@@ -1313,6 +1313,67 @@ router.post(
             if (driverId) {
 
                 /*
+                 * Segurança da associação:
+                 * o entregador precisa existir, estar ativo
+                 * e pertencer ao mesmo tenant do pedido.
+                 */
+                const order =
+                    await prisma.order.findUnique({
+
+                        where: {
+                            id
+                        },
+
+                        select: {
+                            tenantId:
+                                true
+                        }
+
+                    });
+
+                if (!order) {
+
+                    return res.redirect(
+                        `/orders/${id}`
+                    );
+
+                }
+
+                const driver =
+                    await prisma.driver.findFirst({
+
+                        where: {
+
+                            id:
+                                driverId,
+
+                            tenantId:
+                                order.tenantId,
+
+                            active:
+                                true
+
+                        },
+
+                        select: {
+                            id:
+                                true
+                        }
+
+                    });
+
+                if (!driver) {
+
+                    return res.redirect(
+                        `/orders/${id}?error=` +
+                        encodeURIComponent(
+                            "Entregador inválido ou desativado."
+                        )
+                    );
+
+                }
+
+                /*
                  * Como Delivery.orderId é @unique,
                  * primeiro verificamos se já existe
                  * Delivery para o pedido.
@@ -1348,28 +1409,6 @@ router.post(
                     });
 
                 } else {
-
-                    const order =
-                        await prisma.order.findUnique({
-
-                            where: {
-                                id
-                            },
-
-                            select: {
-                                tenantId:
-                                    true
-                            }
-
-                        });
-
-                    if (!order) {
-
-                        return res.redirect(
-                            `/orders/${id}`
-                        );
-
-                    }
 
                     await prisma.delivery.create({
 
