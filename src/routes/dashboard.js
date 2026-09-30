@@ -423,6 +423,7 @@ router.get(
                 previousOrdersCount,
                 financialSummary,
                 previousFinancialSummary,
+                productAbc,
                 recentOrders
             ] =
                 await Promise.all([
@@ -496,6 +497,28 @@ router.get(
                                 period.previousEndDate
                             )
                         ),
+
+                    financialFilterAllowsPaid
+                        ? FinancialService.getPaidProductAbc({
+                            tenantId,
+                            startDate:
+                                period.startDate,
+                            endDate:
+                                period.endDate,
+                            orderStatus
+                        })
+                        : Promise.resolve({
+                            products: [],
+                            totalRevenue: 0,
+                            totalUnits: 0,
+                            productCount: 0,
+                            period: {
+                                startDate:
+                                    period.startDate,
+                                endDate:
+                                    period.endDate
+                            }
+                        }),
 
                     prisma.order.findMany({
                         where:
@@ -634,6 +657,8 @@ router.get(
                     financialSummary,
 
                     previousFinancialSummary,
+
+                    productAbc,
 
                     averageTicket,
 
