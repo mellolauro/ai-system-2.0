@@ -2,6 +2,15 @@ const crypto = require("crypto");
 const express = require("express");
 const router = express.Router();
 const prisma = require("../prisma");
+const FinancialService =
+    require("../services/FinancialService");
+
+const ProviderManager =
+    require("../providers/ProviderManager");
+
+const {
+    getDashboardPeriod
+} = require("../utils/dashboardPeriod");
 
 const {
     getDriverGpsStatus
@@ -183,49 +192,198 @@ router.get(
 
         try {
 
+            const tenantId =
+                req.session?.tenantId;
+
+            if (!tenantId) {
+                return res
+                    .status(401)
+                    .send(
+                        "Sessão administrativa inválida."
+                    );
+            }
+
+            const systemHealth = {
+                application: {
+                    status:
+                        "operational"
+                },
+
+                database: {
+                    status:
+                        "unavailable"
+                },
+
+                artificialIntelligence: {
+                    status:
+                        "unavailable"
+                }
+            };
+
+            const [
+                databaseHealth,
+                artificialIntelligenceHealth
+            ] =
+                await Promise.allSettled([
+
+                    prisma.$queryRaw`SELECT 1`,
+
+                    (async () => {
+
+                        const provider =
+                            ProviderManager.current();
+
+                        return provider.health();
+
+                    })()
+
+                ]);
+
+            if (
+                databaseHealth.status ===
+                "fulfilled"
+            ) {
+
+                systemHealth.database.status =
+                    "operational";
+
+            } else {
+
+                console.error(
+                    "[Dashboard][Health] Banco de dados indisponível:",
+                    databaseHealth.reason?.message ||
+                    databaseHealth.reason
+                );
+
+            }
+
+            if (
+                artificialIntelligenceHealth.status ===
+                "fulfilled" &&
+                artificialIntelligenceHealth.value?.status ===
+                "healthy"
+            ) {
+
+                systemHealth.artificialIntelligence.status =
+                    "operational";
+
+            } else {
+
+                console.error(
+                    "[Dashboard][Health] Inteligência artificial indisponível:",
+                    artificialIntelligenceHealth.status ===
+                    "rejected"
+                        ? (
+                            artificialIntelligenceHealth.reason?.message ||
+                            artificialIntelligenceHealth.reason
+                        )
+                        : artificialIntelligenceHealth.value?.status
+                );
+
+            }
+
+            const period =
+                getDashboardPeriod({
+                    preset:
+                        req.query.period,
+                    start:
+                        req.query.start,
+                    end:
+                        req.query.end
+                });
+
+            const orderPeriodWhere = {
+                tenantId,
+
+                createdAt: {
+                    gte:
+                        period.startDate,
+                    lt:
+                        period.endDate
+                }
+            };
+
+            const previousOrderPeriodWhere = {
+                tenantId,
+
+                createdAt: {
+                    gte:
+                        period.previousStartDate,
+                    lt:
+                        period.previousEndDate
+                }
+            };
+
             const [
                 productsCount,
                 usersCount,
-                tenantsCount,
+                tenant,
                 ordersCount,
-                paidOrders,
+                previousOrdersCount,
+                financialSummary,
+                previousFinancialSummary,
                 recentOrders
             ] =
                 await Promise.all([
 
                     prisma.product.count({
                         where: {
+                            tenantId,
                             active:
                                 true
                         }
                     }),
 
-                    prisma.user.count(),
-
-                    prisma.tenant.count({
+                    prisma.user.count({
                         where: {
-                            active:
-                                true
+                            tenantId
                         }
                     }),
 
-                    prisma.order.count(),
-
-                    prisma.order.findMany({
-
+                    prisma.tenant.findFirst({
                         where: {
-                            paymentStatus:
-                                "PAID"
+                            id:
+                                tenantId,
+                            active:
+                                true
                         },
 
                         select: {
-                            total:
+                            id:
                                 true
                         }
+                    }),
 
+                    prisma.order.count({
+                        where:
+                            orderPeriodWhere
+                    }),
+
+                    prisma.order.count({
+                        where:
+                            previousOrderPeriodWhere
+                    }),
+
+                    FinancialService.getPaidSummary({
+                        tenantId,
+                        startDate:
+                            period.startDate,
+                        endDate:
+                            period.endDate
+                    }),
+
+                    FinancialService.getPaidSummary({
+                        tenantId,
+                        startDate:
+                            period.previousStartDate,
+                        endDate:
+                            period.previousEndDate
                     }),
 
                     prisma.order.findMany({
+                        where: {
+                            tenantId
+                        },
 
                         take:
                             5,
@@ -255,19 +413,88 @@ router.get(
 
                 ]);
 
-            const totalRevenue =
-                paidOrders.reduce(
+            const tenantsCount =
+                tenant
+                    ? 1
+                    : 0;
+
+            const averageTicket =
+                financialSummary.orderCount > 0
+                    ? (
+                        financialSummary.revenue /
+                        financialSummary.orderCount
+                    )
+                    : 0;
+
+            const previousAverageTicket =
+                previousFinancialSummary.orderCount > 0
+                    ? (
+                        previousFinancialSummary.revenue /
+                        previousFinancialSummary.orderCount
+                    )
+                    : 0;
+
+            function percentageChange(
+                current,
+                previous
+            ) {
+
+                const currentValue =
+                    Number(current) || 0;
+
+                const previousValue =
+                    Number(previous) || 0;
+
+                if (previousValue === 0) {
+                    return currentValue === 0
+                        ? 0
+                        : null;
+                }
+
+                return (
                     (
-                        acc,
-                        curr
-                    ) =>
-                        acc +
-                        (
-                            curr.total ||
-                            0
-                        ),
-                    0
-                );
+                        currentValue -
+                        previousValue
+                    ) /
+                    Math.abs(
+                        previousValue
+                    )
+                ) * 100;
+
+            }
+
+            const comparisons = {
+
+                revenue:
+                    percentageChange(
+                        financialSummary.revenue,
+                        previousFinancialSummary.revenue
+                    ),
+
+                orders:
+                    percentageChange(
+                        ordersCount,
+                        previousOrdersCount
+                    ),
+
+                averageTicket:
+                    percentageChange(
+                        averageTicket,
+                        previousAverageTicket
+                    ),
+
+                grossProfit:
+                    (
+                        financialSummary.grossProfit !== null &&
+                        previousFinancialSummary.grossProfit !== null
+                    )
+                        ? percentageChange(
+                            financialSummary.grossProfit,
+                            previousFinancialSummary.grossProfit
+                        )
+                        : null
+
+            };
 
             res.render(
                 "dashboard",
@@ -282,9 +509,25 @@ router.get(
                     ordersCount,
 
                     revenue:
-                        totalRevenue,
+                        financialSummary.revenue,
 
-                    recentOrders
+                    recentOrders,
+
+                    period,
+
+                    financialSummary,
+
+                    previousFinancialSummary,
+
+                    averageTicket,
+
+                    previousAverageTicket,
+
+                    previousOrdersCount,
+
+                    comparisons,
+
+                    systemHealth
 
                 }
             );

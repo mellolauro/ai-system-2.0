@@ -1,169 +1,653 @@
 <div class="space-y-6">
-  <!-- Cabeçalho com Status do Gateway -->
-  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+
+  <!-- Cabeçalho gerencial -->
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
     <div>
       <h1 class="text-2xl font-bold text-slate-800">Visão Geral da Operação</h1>
-      <p class="text-xs text-slate-500 mt-1">Métricas em tempo real de vendas, agentes de IA e instâncias.</p>
+      <p class="text-xs text-slate-500 mt-1">
+        Indicadores comerciais e financeiros da empresa.
+      </p>
     </div>
-    <div class="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-semibold">
-      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-      Gateway OpenClaw online
+
+    <div class="text-xs text-slate-500">
+      Período selecionado:
+      <strong class="text-slate-700"><%= period.label %></strong>
     </div>
   </div>
 
-  <!-- Cards / KPIs -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-    
-    <!-- Faturamento Pago -->
-    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-      <div>
-        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Faturamento (Pago)</p>
-        <h3 class="text-2xl font-bold text-slate-800 mt-1">
-          R$ <%= (typeof revenue !== 'undefined' ? revenue : 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %>
-        </h3>
-        <p class="text-[11px] text-emerald-600 font-medium mt-1">
-          <i class="fas fa-arrow-trend-up mr-1"></i> Pedidos Liquidados
-        </p>
-      </div>
-      <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
-        <i class="fas fa-dollar-sign"></i>
-      </div>
-    </div>
+  <!-- Filtros de período -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+    <form
+      method="GET"
+      action="/dashboard"
+      class="flex flex-col gap-4"
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
+          Período
+        </span>
 
-    <!-- Total de Pedidos -->
-    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-      <div>
-        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total de Pedidos</p>
-        <h3 class="text-2xl font-bold text-slate-800 mt-1"><%= typeof ordersCount !== 'undefined' ? ordersCount : 0 %></h3>
-        <p class="text-[11px] text-indigo-600 font-medium mt-1">
-          <i class="fas fa-shopping-cart mr-1"></i> IA & Manuais
-        </p>
-      </div>
-      <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">
-        <i class="fas fa-box"></i>
-      </div>
-    </div>
+        <% [
+          ['today', 'Hoje'],
+          ['yesterday', 'Ontem'],
+          ['last7days', 'Últimos 7 dias'],
+          ['currentMonth', 'Mês atual'],
+          ['previousMonth', 'Mês anterior'],
+          ['currentYear', 'Ano atual']
+        ].forEach(([value, label]) => { %>
+          <a
+            href="/dashboard?period=<%= value %>"
+            data-dashboard-period="<%= value %>"
+            data-applied="<%= period.preset === value ? 'true' : 'false' %>"
+            class="px-3 py-2 rounded-lg border text-xs font-semibold transition
+              <%= period.preset === value
+                ? 'bg-indigo-600 border-indigo-600 text-white'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' %>"
+          >
+            <%= label %>
+          </a>
+        <% }) %>
 
-    <!-- Produtos Cadastrados -->
-    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-      <div>
-        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Produtos Ativos</p>
-        <h3 class="text-2xl font-bold text-slate-800 mt-1"><%= productsCount %></h3>
-        <p class="text-[11px] text-slate-500 font-medium mt-1">Integrados às ferramentas</p>
+        <button
+          type="button"
+          id="dashboard-custom-period-toggle"
+          data-active="<%= period.preset === 'custom' ? 'true' : 'false' %>"
+          class="px-3 py-2 rounded-lg border text-xs font-semibold transition
+            <%= period.preset === 'custom'
+              ? 'bg-indigo-600 border-indigo-600 text-white'
+              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' %>"
+        >
+          Personalizado
+        </button>
       </div>
-      <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
-        <i class="fas fa-shopping-bag"></i>
-      </div>
-    </div>
 
-    <!-- Usuários e Tenants -->
-    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-      <div>
-        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Empresas / Usuários</p>
-        <h3 class="text-2xl font-bold text-slate-800 mt-1"><%= tenantsCount %> <span class="text-base text-slate-400 font-normal">/ <%= usersCount %></span></h3>
-        <p class="text-[11px] text-purple-600 font-medium mt-1">Instâncias Ativas</p>
-      </div>
-      <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl">
-        <i class="fas fa-building"></i>
-      </div>
-    </div>
+      <div
+        id="dashboard-custom-period"
+        class="flex-col sm:flex-row sm:items-end gap-3 pt-3 border-t border-slate-100"
+        style="display: <%= period.preset === 'custom' ? 'flex' : 'none' %>;"
+      >
+        <input
+          type="hidden"
+          name="period"
+          value="custom"
+        >
 
+        <div>
+          <label
+            for="dashboard-start-date"
+            class="block text-xs font-semibold text-slate-600 mb-1"
+          >
+            Data inicial
+          </label>
+
+          <input
+            id="dashboard-start-date"
+            type="date"
+            name="start"
+            value="<%= period.startInput %>"
+            class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700"
+            required
+          >
+        </div>
+
+        <div>
+          <label
+            for="dashboard-end-date"
+            class="block text-xs font-semibold text-slate-600 mb-1"
+          >
+            Data final
+          </label>
+
+          <input
+            id="dashboard-end-date"
+            type="date"
+            name="end"
+            value="<%= period.endInput %>"
+            class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700"
+            required
+          >
+        </div>
+
+        <button
+          type="submit"
+          class="px-4 py-2 rounded-lg bg-slate-800 text-white text-sm font-semibold hover:bg-slate-900 transition"
+        >
+          Aplicar
+        </button>
+      </div>
+    </form>
   </div>
 
-  <!-- Monitor de Agentes + Tabela de Pedidos Recentes -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- KPIs gerenciais -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
 
-    <!-- Cluster de IA (1 Coluna) -->
-    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-      <div>
-        <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <i class="fas fa-robot text-indigo-600"></i> Cluster de Agentes
-        </h3>
-        <div class="space-y-2.5 text-sm">
-          <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg">
-            <span class="font-medium text-slate-700 text-xs">Vendas</span>
-            <span class="text-[10px] font-bold text-emerald-600 bg-emerald-100/60 px-2 py-0.5 rounded">Online</span>
-          </div>
-          <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg">
-            <span class="font-medium text-slate-700 text-xs">Catálogo</span>
-            <span class="text-[10px] font-bold text-emerald-600 bg-emerald-100/60 px-2 py-0.5 rounded">Online</span>
-          </div>
-          <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg">
-            <span class="font-medium text-slate-700 text-xs">Suporte (Rastreamento)</span>
-            <span class="text-[10px] font-bold text-emerald-600 bg-emerald-100/60 px-2 py-0.5 rounded">Online</span>
-          </div>
-          <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg">
-            <span class="font-medium text-slate-700 text-xs">AI Data (Memória)</span>
-            <span class="text-[10px] font-bold text-emerald-600 bg-emerald-100/60 px-2 py-0.5 rounded">Online</span>
-          </div>
-          <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg">
-            <span class="font-medium text-slate-700 text-xs">Tratamento de contingência</span>
-            <span class="text-[10px] font-bold text-emerald-600 bg-emerald-100/60 px-2 py-0.5 rounded">Online</span>
-          </div>
+    <!-- Faturamento -->
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Faturamento
+          </p>
+
+          <h3 class="text-2xl font-bold text-slate-800 mt-1">
+            R$ <%= Number(financialSummary.revenue || 0).toLocaleString('pt-BR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            }) %>
+          </h3>
+        </div>
+
+        <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+          <i class="fas fa-dollar-sign"></i>
         </div>
       </div>
-      
-      <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-        <span>Provedor: <strong>OpenClaw</strong></span>
-        <a href="/tenants" class="text-indigo-600 font-semibold hover:underline">Limites →</a>
-      </div>
+
+      <p class="text-[11px] text-slate-500 mt-3">
+        <%= financialSummary.orderCount %>
+        <%= financialSummary.orderCount === 1 ? 'pedido pago' : 'pedidos pagos' %>
+        no período
+      </p>
+
+      <p class="text-[11px] mt-1 <%= comparisons.revenue !== null && comparisons.revenue > 0
+        ? 'text-emerald-600'
+        : comparisons.revenue !== null && comparisons.revenue < 0
+          ? 'text-red-600'
+          : 'text-slate-400' %>">
+        <% if (comparisons.revenue === null) { %>
+          Sem base anterior para comparação
+        <% } else { %>
+          <%= comparisons.revenue > 0 ? '+' : '' %><%= comparisons.revenue.toLocaleString('pt-BR', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1
+          }) %>% em relação ao período anterior
+        <% } %>
+      </p>
     </div>
 
-    <!-- Pedidos Recentes (2 Colunas) -->
-    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-2">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-bold text-slate-800">Últimos Pedidos</h3>
-        <a href="/orders" class="text-xs font-semibold text-blue-600 hover:underline">Ver Todos</a>
+    <!-- Pedidos -->
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Pedidos
+          </p>
+
+          <h3 class="text-2xl font-bold text-slate-800 mt-1">
+            <%= ordersCount %>
+          </h3>
+        </div>
+
+        <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+          <i class="fas fa-box"></i>
+        </div>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead>
-            <tr class="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-semibold">
-              <th class="py-2.5">ID / Data</th>
-              <th class="py-2.5">Cliente</th>
-              <th class="py-2.5">Status</th>
-              <th class="py-2.5">Pagamento</th>
-              <th class="py-2.5 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <% if (typeof recentOrders !== 'undefined' && recentOrders.length > 0) { %>
-              <% recentOrders.forEach(order => { %>
-                <tr class="hover:bg-slate-50/70 transition">
-                  <td class="py-3">
-                    <span class="font-mono font-bold text-blue-600">#<%= order.id.slice(-6).toUpperCase() %></span>
-                    <span class="block text-[10px] text-slate-400"><%= new Date(order.createdAt).toLocaleDateString('pt-BR') %></span>
-                  </td>
-                  <td class="py-3 font-medium text-slate-700"><%= order.user ? order.user.name : 'N/A' %></td>
-                  <td class="py-3">
-                    <span class="px-2 py-0.5 rounded font-semibold text-[10px] 
-                      <%= order.status === 'SHIPPED' ? 'bg-purple-50 text-purple-700' : 
-                          order.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' %>">
-                      <%= orderStatusLabel(order.status) %>
-                    </span>
-                  </td>
-                  <td class="py-3">
-                    <span class="px-1.5 py-0.5 rounded text-[10px] <%= order.paymentStatus === 'PAID' ? 'text-emerald-700 font-bold bg-emerald-50 border border-emerald-200' : 'text-amber-700 bg-amber-50 border border-amber-200' %>">
-                      <%= paymentStatusLabel(order.paymentStatus) %>
-                    </span>
-                  </td>
-                  <td class="py-3 text-right font-bold text-slate-800">
-                    R$ <%= Number(order.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %>
-                  </td>
-                </tr>
-              <% }) %>
-            <% } else { %>
-              <tr>
-                <td colspan="5" class="py-4 text-center text-slate-400">Sem pedidos registrados até o momento.</td>
-              </tr>
-            <% } %>
-          </tbody>
-        </table>
+      <p class="text-[11px] text-slate-500 mt-3">
+        Pedidos criados no período
+      </p>
+
+      <p class="text-[11px] mt-1 <%= comparisons.orders !== null && comparisons.orders > 0
+        ? 'text-emerald-600'
+        : comparisons.orders !== null && comparisons.orders < 0
+          ? 'text-red-600'
+          : 'text-slate-400' %>">
+        <% if (comparisons.orders === null) { %>
+          Sem base anterior para comparação
+        <% } else { %>
+          <%= comparisons.orders > 0 ? '+' : '' %><%= comparisons.orders.toLocaleString('pt-BR', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1
+          }) %>% em relação ao período anterior
+        <% } %>
+      </p>
+    </div>
+
+    <!-- Ticket médio -->
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Ticket médio
+          </p>
+
+          <h3 class="text-2xl font-bold text-slate-800 mt-1">
+            R$ <%= Number(averageTicket || 0).toLocaleString('pt-BR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            }) %>
+          </h3>
+        </div>
+
+        <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+          <i class="fas fa-receipt"></i>
+        </div>
       </div>
+
+      <p class="text-[11px] text-slate-500 mt-3">
+        Valor médio dos pedidos pagos
+      </p>
+
+      <p class="text-[11px] mt-1 <%= comparisons.averageTicket !== null && comparisons.averageTicket > 0
+        ? 'text-emerald-600'
+        : comparisons.averageTicket !== null && comparisons.averageTicket < 0
+          ? 'text-red-600'
+          : 'text-slate-400' %>">
+        <% if (comparisons.averageTicket === null) { %>
+          Sem base anterior para comparação
+        <% } else { %>
+          <%= comparisons.averageTicket > 0 ? '+' : '' %><%= comparisons.averageTicket.toLocaleString('pt-BR', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1
+          }) %>% em relação ao período anterior
+        <% } %>
+      </p>
+    </div>
+
+    <!-- Margem bruta -->
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Margem bruta
+          </p>
+
+          <% if (financialSummary.hasCompleteCost) { %>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">
+              <%= Number(financialSummary.grossMargin || 0).toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1
+              }) %>%
+            </h3>
+          <% } else { %>
+            <h3 class="text-xl font-bold text-slate-500 mt-1">
+              Indisponível
+            </h3>
+          <% } %>
+        </div>
+
+        <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg">
+          <i class="fas fa-chart-line"></i>
+        </div>
+      </div>
+
+      <% if (financialSummary.totalUnits === 0) { %>
+        <p class="text-[11px] text-slate-500 mt-3">
+          Sem vendas pagas no período
+        </p>
+      <% } else if (!financialSummary.hasCompleteCost) { %>
+        <p class="text-[11px] text-amber-700 mt-3">
+          <%= Number(financialSummary.costCoverage || 0).toLocaleString('pt-BR', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1
+          }) %>% dos custos informados
+        </p>
+
+        <p class="text-[11px] text-slate-400 mt-1">
+          Informe os custos restantes para calcular a margem.
+        </p>
+      <% } else { %>
+        <p class="text-[11px] text-slate-500 mt-3">
+          Lucro bruto:
+          R$ <%= Number(financialSummary.grossProfit || 0).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          }) %>
+        </p>
+
+        <p class="text-[11px] mt-1 <%= comparisons.grossProfit !== null && comparisons.grossProfit > 0
+          ? 'text-emerald-600'
+          : comparisons.grossProfit !== null && comparisons.grossProfit < 0
+            ? 'text-red-600'
+            : 'text-slate-400' %>">
+          <% if (comparisons.grossProfit === null) { %>
+            Sem base anterior para comparação
+          <% } else { %>
+            <%= comparisons.grossProfit > 0 ? '+' : '' %><%= comparisons.grossProfit.toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1
+            }) %>% de lucro bruto contra o período anterior
+          <% } %>
+        </p>
+      <% } %>
     </div>
 
   </div>
+
+  <script>
+    (() => {
+      const toggle =
+        document.getElementById(
+          "dashboard-custom-period-toggle"
+        );
+
+      const customPeriod =
+        document.getElementById(
+          "dashboard-custom-period"
+        );
+
+      if (
+        !toggle ||
+        !customPeriod
+      ) {
+        return;
+      }
+
+      const periodLinks =
+        document.querySelectorAll(
+          "[data-dashboard-period]"
+        );
+
+      const setPeriodLinkState =
+        (
+          link,
+          active
+        ) => {
+
+          link.classList.toggle(
+            "bg-indigo-600",
+            active
+          );
+
+          link.classList.toggle(
+            "border-indigo-600",
+            active
+          );
+
+          link.classList.toggle(
+            "text-white",
+            active
+          );
+
+          link.classList.toggle(
+            "bg-white",
+            !active
+          );
+
+          link.classList.toggle(
+            "border-slate-200",
+            !active
+          );
+
+          link.classList.toggle(
+            "text-slate-600",
+            !active
+          );
+
+      };
+
+      const restoreAppliedPeriod =
+        () => {
+
+          periodLinks.forEach(
+            (link) => {
+              setPeriodLinkState(
+                link,
+                link.dataset.applied ===
+                  "true"
+              );
+            }
+          );
+
+        };
+
+      const setCustomButtonState =
+        (active) => {
+
+          toggle.classList.toggle(
+            "bg-indigo-600",
+            active
+          );
+
+          toggle.classList.toggle(
+            "border-indigo-600",
+            active
+          );
+
+          toggle.classList.toggle(
+            "text-white",
+            active
+          );
+
+          toggle.classList.toggle(
+            "bg-white",
+            !active
+          );
+
+          toggle.classList.toggle(
+            "border-slate-200",
+            !active
+          );
+
+          toggle.classList.toggle(
+            "text-slate-600",
+            !active
+          );
+
+          toggle.classList.toggle(
+            "hover:bg-slate-50",
+            !active
+          );
+
+          toggle.dataset.active =
+            active
+              ? "true"
+              : "false";
+        };
+
+      toggle.addEventListener(
+        "click",
+        () => {
+
+          const opening =
+            customPeriod.style.display ===
+            "none";
+
+          customPeriod.style.display =
+            opening
+              ? "flex"
+              : "none";
+
+          if (opening) {
+
+            periodLinks.forEach(
+              (link) => {
+                setPeriodLinkState(
+                  link,
+                  false
+                );
+              }
+            );
+
+          } else {
+
+            restoreAppliedPeriod();
+
+          }
+
+          setCustomButtonState(
+            opening
+          );
+
+        }
+      );
+    })();
+  </script>
+
+  <!-- Últimos Pedidos -->
+  <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-base font-bold text-slate-800">
+          Últimos Pedidos
+        </h3>
+        <p class="text-[11px] text-slate-500 mt-1">
+          Pedidos mais recentes da operação.
+        </p>
+      </div>
+
+      <a
+        href="/orders"
+        class="text-xs font-semibold text-blue-600 hover:underline"
+      >
+        Ver todos
+      </a>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse text-xs">
+        <thead>
+          <tr class="border-b border-slate-100 text-slate-400 uppercase tracking-wider font-semibold">
+            <th class="py-2.5">ID / Data</th>
+            <th class="py-2.5">Cliente</th>
+            <th class="py-2.5">Status</th>
+            <th class="py-2.5">Pagamento</th>
+            <th class="py-2.5 text-right">Total</th>
+          </tr>
+        </thead>
+
+        <tbody class="divide-y divide-slate-100">
+          <% if (
+            typeof recentOrders !== 'undefined' &&
+            recentOrders.length > 0
+          ) { %>
+
+            <% recentOrders.forEach(order => { %>
+              <tr class="hover:bg-slate-50/70 transition">
+                <td class="py-3">
+                  <span class="font-mono font-bold text-blue-600">
+                    #<%= order.id.slice(-6).toUpperCase() %>
+                  </span>
+
+                  <span class="block text-[10px] text-slate-400">
+                    <%= new Date(order.createdAt).toLocaleDateString('pt-BR') %>
+                  </span>
+                </td>
+
+                <td class="py-3 font-medium text-slate-700">
+                  <%= order.user ? order.user.name : 'N/A' %>
+                </td>
+
+                <td class="py-3">
+                  <span
+                    class="px-2 py-0.5 rounded font-semibold text-[10px]
+                      <%= order.status === 'SHIPPED'
+                        ? 'bg-purple-50 text-purple-700'
+                        : order.status === 'DELIVERED'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-slate-100 text-slate-600' %>"
+                  >
+                    <%= orderStatusLabel(order.status) %>
+                  </span>
+                </td>
+
+                <td class="py-3">
+                  <span
+                    class="px-1.5 py-0.5 rounded text-[10px]
+                      <%= order.paymentStatus === 'PAID'
+                        ? 'text-emerald-700 font-bold bg-emerald-50 border border-emerald-200'
+                        : 'text-amber-700 bg-amber-50 border border-amber-200' %>"
+                  >
+                    <%= paymentStatusLabel(order.paymentStatus) %>
+                  </span>
+                </td>
+
+                <td class="py-3 text-right font-bold text-slate-800">
+                  R$ <%= Number(order.total).toLocaleString(
+                    'pt-BR',
+                    {
+                      minimumFractionDigits: 2
+                    }
+                  ) %>
+                </td>
+              </tr>
+            <% }) %>
+
+          <% } else { %>
+            <tr>
+              <td
+                colspan="5"
+                class="py-6 text-center text-slate-400"
+              >
+                Sem pedidos registrados até o momento.
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Saúde do Sistema -->
+  <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+    <div class="mb-4">
+      <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+        <i class="fas fa-heartbeat text-emerald-600"></i>
+        Saúde do Sistema
+      </h3>
+
+      <p class="text-[11px] text-slate-500 mt-1">
+        Estado dos principais serviços da operação.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+      <% [
+        {
+          label: 'Aplicação',
+          description: 'Painel administrativo e serviços web',
+          status: systemHealth.application.status
+        },
+        {
+          label: 'Banco de dados',
+          description: 'Persistência e acesso aos dados',
+          status: systemHealth.database.status
+        },
+        {
+          label: 'Inteligência Artificial',
+          description: 'Serviços de IA e atendimento',
+          status: systemHealth.artificialIntelligence.status
+        }
+      ].forEach(service => { %>
+
+        <% const operational =
+          service.status === 'operational'; %>
+
+        <div class="flex items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold text-slate-700">
+              <%= service.label %>
+            </p>
+
+            <p class="text-[10px] text-slate-400 mt-1">
+              <%= service.description %>
+            </p>
+          </div>
+
+          <span
+            class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold
+              <%= operational
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-red-100 text-red-700' %>"
+          >
+            <span
+              class="w-1.5 h-1.5 rounded-full
+                <%= operational
+                  ? 'bg-emerald-500'
+                  : 'bg-red-500' %>"
+            ></span>
+
+            <%= operational
+              ? 'Operacional'
+              : 'Indisponível' %>
+          </span>
+        </div>
+
+      <% }) %>
+
+    </div>
+  </div>
+
 
   <!-- Assistente Administrativo -->
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
