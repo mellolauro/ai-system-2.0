@@ -292,8 +292,71 @@ router.get(
                         req.query.end
                 });
 
+            const validOrderStatuses =
+                new Set([
+                    "PENDING",
+                    "PROCESSING",
+                    "PAID",
+                    "SHIPPED",
+                    "DELIVERED",
+                    "CANCELLED",
+                    "REFUNDED"
+                ]);
+
+            const validPaymentStatuses =
+                new Set([
+                    "PENDING",
+                    "PAID",
+                    "FAILED",
+                    "REFUNDED",
+                    "CANCELLED"
+                ]);
+
+            const requestedOrderStatus =
+                typeof req.query.orderStatus === "string"
+                    ? req.query.orderStatus
+                    : "";
+
+            const requestedPaymentStatus =
+                typeof req.query.paymentStatus === "string"
+                    ? req.query.paymentStatus
+                    : "";
+
+            const orderStatus =
+                validOrderStatuses.has(
+                    requestedOrderStatus
+                )
+                    ? requestedOrderStatus
+                    : null;
+
+            const paymentStatus =
+                validPaymentStatuses.has(
+                    requestedPaymentStatus
+                )
+                    ? requestedPaymentStatus
+                    : null;
+
+            const orderFilters = {
+
+                ...(orderStatus
+                    ? {
+                        status:
+                            orderStatus
+                    }
+                    : {}),
+
+                ...(paymentStatus
+                    ? {
+                        paymentStatus
+                    }
+                    : {})
+
+            };
+
             const orderPeriodWhere = {
                 tenantId,
+
+                ...orderFilters,
 
                 createdAt: {
                     gte:
@@ -306,6 +369,8 @@ router.get(
             const previousOrderPeriodWhere = {
                 tenantId,
 
+                ...orderFilters,
+
                 createdAt: {
                     gte:
                         period.previousStartDate,
@@ -313,6 +378,42 @@ router.get(
                         period.previousEndDate
                 }
             };
+
+            const financialFilterAllowsPaid =
+                !paymentStatus ||
+                paymentStatus === "PAID";
+
+            const emptyFinancialSummary = (
+                startDate,
+                endDate
+            ) => ({
+                revenue:
+                    0,
+                knownCost:
+                    0,
+                grossProfit:
+                    null,
+                grossMargin:
+                    null,
+                totalUnits:
+                    0,
+                unitsWithKnownCost:
+                    0,
+                missingCostUnits:
+                    0,
+                costCoverage:
+                    null,
+                hasCompleteCost:
+                    false,
+                orderCount:
+                    0,
+                paidWithoutPaidAtCount:
+                    0,
+                period: {
+                    startDate,
+                    endDate
+                }
+            });
 
             const [
                 productsCount,
@@ -364,26 +465,41 @@ router.get(
                             previousOrderPeriodWhere
                     }),
 
-                    FinancialService.getPaidSummary({
-                        tenantId,
-                        startDate:
-                            period.startDate,
-                        endDate:
-                            period.endDate
-                    }),
+                    financialFilterAllowsPaid
+                        ? FinancialService.getPaidSummary({
+                            tenantId,
+                            startDate:
+                                period.startDate,
+                            endDate:
+                                period.endDate,
+                            orderStatus
+                        })
+                        : Promise.resolve(
+                            emptyFinancialSummary(
+                                period.startDate,
+                                period.endDate
+                            )
+                        ),
 
-                    FinancialService.getPaidSummary({
-                        tenantId,
-                        startDate:
-                            period.previousStartDate,
-                        endDate:
-                            period.previousEndDate
-                    }),
+                    financialFilterAllowsPaid
+                        ? FinancialService.getPaidSummary({
+                            tenantId,
+                            startDate:
+                                period.previousStartDate,
+                            endDate:
+                                period.previousEndDate,
+                            orderStatus
+                        })
+                        : Promise.resolve(
+                            emptyFinancialSummary(
+                                period.previousStartDate,
+                                period.previousEndDate
+                            )
+                        ),
 
                     prisma.order.findMany({
-                        where: {
-                            tenantId
-                        },
+                        where:
+                            orderPeriodWhere,
 
                         take:
                             5,
@@ -527,7 +643,12 @@ router.get(
 
                     comparisons,
 
-                    systemHealth
+                    systemHealth,
+
+                    filters: {
+                        orderStatus,
+                        paymentStatus
+                    }
 
                 }
             );

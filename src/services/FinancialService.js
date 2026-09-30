@@ -120,7 +120,8 @@ class FinancialService {
     static async getPaidSummary({
         tenantId,
         startDate,
-        endDate
+        endDate,
+        orderStatus = null
     }) {
 
         if (!tenantId) {
@@ -174,6 +175,13 @@ class FinancialService {
                     paymentStatus:
                         "PAID",
 
+                    ...(orderStatus
+                        ? {
+                            status:
+                                orderStatus
+                        }
+                        : {}),
+
                     paidAt:
                         null
 
@@ -190,6 +198,13 @@ class FinancialService {
 
                     paymentStatus:
                         "PAID",
+
+                    ...(orderStatus
+                        ? {
+                            status:
+                                orderStatus
+                        }
+                        : {}),
 
                     paidAt: {
 
