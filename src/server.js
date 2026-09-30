@@ -12,6 +12,7 @@ const os = require("os");
 const prisma = require("./prisma");
 const bootstrap = require("./bootstrap");
 const requireAuth = require("./middleware/requireAuth");
+const uiLabels = require("./utils/uiLabels");
 
 const {
     csrfSynchronisedProtection,
@@ -155,6 +156,16 @@ app.use(
 app.set(
     "layout",
     "layout"
+);
+
+/*
+ * Helpers globais de apresentação.
+ * Os valores internos permanecem inalterados; apenas os
+ * rótulos exibidos nas views são traduzidos para PT-BR.
+ */
+Object.assign(
+    app.locals,
+    uiLabels
 );
 
 /*

@@ -86,15 +86,15 @@
           name="role" 
           class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-800 font-semibold"
         >
-          <option value="USER" <%= (isEdit && user.role === 'USER') ? 'selected' : '' %>>USER (Cliente Comum)</option>
-          <option value="ADMIN" <%= (isEdit && user.role === 'ADMIN') ? 'selected' : '' %>>ADMIN (Acesso a Tools Administrativas)</option>
+          <option value="USER" <%= (isEdit && user.role === 'USER') ? 'selected' : '' %>>Cliente</option>
+          <option value="ADMIN" <%= (isEdit && user.role === 'ADMIN') ? 'selected' : '' %>>Administrador (Acesso às ferramentas administrativas)</option>
         </select>
       </div>
     </div>
 
     <!-- Tenant -->
     <div>
-      <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Tenant (Empresa)</label>
+      <label class="block text-xs font-bold uppercase text-slate-600 mb-2">Empresa</label>
       <select 
         name="tenantId" 
         class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-800"
